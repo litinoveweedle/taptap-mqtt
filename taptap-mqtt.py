@@ -276,7 +276,7 @@ def taptap_tele(mode):
                     break
                 try:
                     if re.match(
-                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}\+\d{2}\:\d{2}$",
+                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}[+\-]\d{2}\:\d{2}$",
                         data[name],
                     ):
                         tmstp = datetime.strptime(
@@ -284,7 +284,7 @@ def taptap_tele(mode):
                             "%Y-%m-%dT%H:%M:%S.%f%z",
                         )
                     elif re.match(
-                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}\+\d{2}\:\d{2}$",
+                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}[+\-]\d{2}\:\d{2}$",
                         data[name],
                     ):
                         tmstp = datetime.strptime(
