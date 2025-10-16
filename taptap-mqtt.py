@@ -2,6 +2,7 @@
 
 import paho.mqtt.client as mqtt
 import configparser
+import hashlib
 import json
 import time
 import uptime
@@ -539,7 +540,7 @@ def taptap_discovery_device():
                     "p": "sensor",
                     "name": (sensor + " " + op).replace("_", " ").title(),
                     "unique_id": sensor_uuid,
-                    "object_id": sensor_id,
+                    "default_entity_id": sensor_id,
                     "device_class": sensors[sensor]["class"],
                     "unit_of_measurement": sensors[sensor]["unit"],
                     "state_topic": state_topic,
@@ -577,7 +578,7 @@ def taptap_discovery_device():
                     "p": "sensor",
                     "name": (node_name + " " + sensor).replace("_", " ").title(),
                     "unique_id": sensor_uuid,
-                    "object_id": sensor_id,
+                    "default_entity_id": sensor_id,
                     "device_class": sensors[sensor]["class"],
                     "unit_of_measurement": sensors[sensor]["unit"],
                     "state_topic": state_topic,
@@ -761,8 +762,24 @@ def taptap_init():
     logging("debug", "Into taptap_init")
     global taptap
 
+    with open(config["TAPTAP"]["BINARY"], "rb") as fh:
+        m = hashlib.md5()
+        while True:
+            data = fh.read(8192)
+            if not data:
+                break
+            m.update(data)
+        logging("debug", "Using TapTap binary with MD5 checksum: " + m.hexdigest())
+
     # Initialize taptap process
     if config["TAPTAP"]["SERIAL"]:
+        logging(
+            "debug",
+            "Starting TapTap process: "
+            + config["TAPTAP"]["BINARY"]
+            + " observe --serial "
+            + config["TAPTAP"]["SERIAL"],
+        )
         taptap = subprocess.Popen(
             [
                 config["TAPTAP"]["BINARY"],
@@ -775,6 +792,15 @@ def taptap_init():
             pipesize=1024 * 1024,
         )
     elif config["TAPTAP"]["ADDRESS"]:
+        logging(
+            "debug",
+            "Starting TapTap process: "
+            + config["TAPTAP"]["BINARY"]
+            + " observe --tcp "
+            + config["TAPTAP"]["ADDRESS"]
+            + " --port "
+            + config["TAPTAP"]["PORT"],
+        )
         taptap = subprocess.Popen(
             [
                 config["TAPTAP"]["BINARY"],
@@ -806,11 +832,24 @@ def taptap_cleanup():
     global taptap
 
     if taptap:
-        taptap.terminate()
-        time.sleep(1)
         if taptap.poll() is not None:
-            taptap.kill()
-        del taptap
+            logging("info", "Terminating TapTap process.")
+            taptap.terminate()
+            time.sleep(1)
+            if taptap.poll() is not None:
+                logging("warning", "TapTap process is still running, sending kill!")
+                taptap.kill()
+                time.sleep(3)
+                if taptap.poll() is not None:
+                    logging(
+                        "error", "TapTap process is still running, terminating anyway!"
+                    )
+        else:
+            code = taptap.returncode
+            logging(
+                "error", f"Process TapTap exited unexpectedly with error code: {code}"
+            )
+        taptap = None
 
 
 def mqtt_init():
@@ -868,7 +907,7 @@ def mqtt_cleanup():
             if config["HA"]["BIRTH_TOPIC"]:
                 client.unsubscribe(config["HA"]["BIRTH_TOPIC"])
             client.disconnect()
-        del client
+        client = None
 
 
 # The callback for when the client receives a CONNACK response from the server.
@@ -959,7 +998,6 @@ while True:
             int(config["RUNTIME"]["MAX_ERROR"]) == 0
             or restart <= int(config["RUNTIME"]["MAX_ERROR"])
         ):
-            logging("error", "")
             if type(error) == MqttError:
                 mqtt_cleanup()
             elif type(error) == AppError:
