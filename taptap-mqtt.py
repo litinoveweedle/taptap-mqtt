@@ -102,7 +102,7 @@ sensors = {
         "class": "timestamp",
         "unit": None,
         "round": None,
-        "track_availability": False,
+        "track_availability": True,
     },
     "node_serial": {
         "class": None,
