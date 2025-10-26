@@ -11,6 +11,7 @@ import sys
 import uuid
 import re
 import subprocess
+import traceback
 from dateutil import tz
 from datetime import datetime
 from pathlib import Path
@@ -63,6 +64,7 @@ sensors = {
     "duty_cycle": {"class": "power_factor", "unit": "%", "round": 0},
     "rssi": {"class": "signal_strength", "unit": "dB", "round": 0},
     "timestamp": {"class": "timestamp", "unit": None, "round": None},
+    "node_barcode": {"class": None, "unit": None, "round": None},
 }
 
 config_validation = {
@@ -80,12 +82,13 @@ config_validation = {
         "SERIAL?": r"^\/dev\/tty\w+$",
         "ADDRESS?": r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$",
         "PORT": r"^\d+$",
-        "MODULE_IDS": r"^\s*\d+\s*(\,\s*\d+\s*)*$",
         "MODULE_NAMES": r"^\s*\w+\s*(\,\s*\w+\s*)*$",
+        "MODULE_BARCODES": r"^[0-9A-Z]\-[0-9A-Z]{7}\s*(\,\s*[0-9A-Z]\-[0-9A-Z]{7}\s*)*$",
         "TOPIC_PREFIX": r"^(\w+)(\/\w+)*",
         "TOPIC_NAME": r"^(\w+)$",
         "TIMEOUT": r"^\d+$",
         "UPDATE": r"^\d+$",
+        "PERSISTENT_FILE": r"^(\.{0,2}\/)*(\w+\/)*taptap.json$",
     },
     "HA": {
         "DISCOVERY_PREFIX": r"^(\w+)(\/\w+)*",
@@ -160,19 +163,30 @@ if not len(node_names) or not (all([re.match(r"^\w+$", val) for val in node_name
     )
     exit(1)
 
-node_ids = list(map(str.strip, config["TAPTAP"]["MODULE_IDS"].split(",")))
-if not len(node_ids) or not (all([re.match(r"^\d+$", val) for val in node_ids])):
+node_barcodes = list(map(str.strip, config["TAPTAP"]["MODULE_BARCODES"].split(",")))
+if not len(node_barcodes) or not (
+    all([re.match(r"^[0-9A-Z]\-[0-9A-Z]{7}$", val) for val in node_barcodes])
+):
     logging(
-        "error", f"MODULE_IDS shall be comma separated list of modules IDs: {node_ids}"
+        "error",
+        f"MODULE_BARCODES shall be comma separated list of modules barcodes: {node_barcodes}",
     )
     exit(1)
 
-if len(node_ids) != len(node_names):
-    logging("error", "MODULE_IDS and MODULE_NAMES shall have same number of modules")
+if len(node_barcodes) != len(node_names):
+    logging(
+        "error", "MODULE_BARCODES and MODULE_NAMES shall have same number of modules"
+    )
     exit(1)
 
 # Init nodes dictionary
-nodes = dict(zip(node_ids, node_names))
+# node barcodes -> node names mapping
+nodes_barcodes_names = dict(zip(node_barcodes, node_names))
+# node names -> node ids mapping
+nodes_names_ids = {}
+# node ids -> node names + barcodes mapping
+nodes = {}
+gateways = {}
 
 # Init cache struct
 cache = dict.fromkeys(node_names, {})
@@ -186,6 +200,12 @@ lwt_topic = (
 )
 state_topic = (
     config["TAPTAP"]["TOPIC_PREFIX"] + "/" + config["TAPTAP"]["TOPIC_NAME"] + "/state"
+)
+attributes_topic = (
+    config["TAPTAP"]["TOPIC_PREFIX"]
+    + "/"
+    + config["TAPTAP"]["TOPIC_NAME"]
+    + "/attributes"
 )
 
 logging("debug", f"Configured nodes: {nodes}")
@@ -217,121 +237,35 @@ def taptap_tele(mode):
             data = json.loads(line)
         except json.JSONDecodeError as error:
             logging("warning", f"Can't parse json: {error}")
-            logging("warning", line)
+            logging("debug", line)
             continue
 
-        logging("debug", "Received taptap data")
-        logging("debug", line)
-        for name in [
-            "gateway",
-            "node",
-            "voltage_in",
-            "voltage_out",
-            "current",
-            "dc_dc_duty_cycle",
-            "temperature",
-            "rssi",
-            "timestamp",
-        ]:
-            if name not in data.keys():
-                logging("warning", f"Missing required key: '{name}'")
+        if "event_type" not in data.keys():
+            logging("warning", "Unknown taptap event type")
+            logging("debug", data)
+            continue
+
+        if data["event_type"] == "infrastructure_report":
+            logging("debug", "Received infrastructure_report event")
+            logging("debug", data)
+            if taptap_infrastructure_event(data):
+                # Infrastructure Event processed
+                logging("debug", "Successfully processed infrastructure event")
                 logging("debug", data)
-                break
-            elif name in ["gateway", "node"]:
-                if not (
-                    isinstance(data[name], dict)
-                    and "id" in data[name].keys()
-                    and isinstance(data[name]["id"], int)
-                ):
-                    logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                    logging("debug", data)
-                    break
-                if name == "node" and str(data[name]["id"]) not in nodes.keys():
-                    logging("warning", f"Unknown node id: '{data[name]['id']}'")
-                    logging("debug", data)
-                    break
-                data[name + "_id"] = data[name]["id"]
-                del data[name]
-            elif name in [
-                "voltage_in",
-                "voltage_out",
-                "current",
-                "dc_dc_duty_cycle",
-                "temperature",
-            ]:
-                if not isinstance(data[name], (float, int)):
-                    logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                    logging("debug", data)
-                    break
-                if name == "dc_dc_duty_cycle":
-                    data["duty_cycle"] = round(data.pop("dc_dc_duty_cycle") * 100, 2)
-            elif name in ["rssi"]:
-                if not isinstance(data[name], int):
-                    logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                    logging("debug", data)
-                    break
-            elif name == "timestamp":
-                if not (isinstance(data[name], str)) and data[name]:
-                    logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                    logging("debug", data)
-                    break
-                try:
-                    if re.match(
-                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}[+-]\d{2}\:\d{2}$",
-                        data[name],
-                    ):
-                        tmstp = datetime.strptime(
-                            data[name][0:26] + data[name][29:],
-                            "%Y-%m-%dT%H:%M:%S.%f%z",
-                        )
-                    elif re.match(
-                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}[+-]\d{2}\:\d{2}$",
-                        data[name],
-                    ):
-                        tmstp = datetime.strptime(
-                            data[name],
-                            "%Y-%m-%dT%H:%M:%S.%f%z",
-                        )
-                    elif re.match(
-                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}Z$", data[name]
-                    ):
-                        tmstp = datetime.strptime(
-                            data[name][0:26] + "Z",
-                            "%Y-%m-%dT%H:%M:%S.%fZ",
-                        )
-                    elif re.match(
-                        r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}Z$", data[name]
-                    ):
-                        tmstp = datetime.strptime(
-                            data[name],
-                            "%Y-%m-%dT%H:%M:%S.%fZ",
-                        )
-                    else:
-                        logging(
-                            "warning", f"Invalid key 'timestamp' format: '{data[name]}'"
-                        )
-                        logging("debug", data)
-                        break
-                    data["timestamp"] = tmstp.isoformat()
-                    data["tmstp"] = tmstp.timestamp()
-                except:
-                    logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                    logging("debug", data)
-                    break
-                # Copy validated data into cache struct
-                if data["tmstp"] + int(config["TAPTAP"]["UPDATE"]) < now:
-                    diff = round(now - data["tmstp"], 1)
-                    logging(
-                        "warning",
-                        f"Old data detected: '{data[name]}', time difference: '{diff}'s",
-                    )
-                    logging("debug", data)
-                    break
-                else:
-                    data["power"] = data["voltage_out"] * data["current"]
-                    cache[nodes[str(data["node_id"])]][data["tmstp"]] = data
-                    logging("debug", "Successfully processed data line")
-                    logging("debug", data)
+                logging("info", "Nodes were enumerated, flushing message cache")
+                cache = dict.fromkeys(node_names, {})
+        elif data["event_type"] == "power_report":
+            logging("debug", "Received power_report event")
+            logging("debug", data)
+            if taptap_power_event(data, now):
+                # Power Report processed
+                cache[data["node_name"]][data["tmstp"]] = data
+                logging("debug", "Successfully processed power event")
+                logging("debug", data)
+        else:
+            logging("warning", "Unknown taptap event type")
+            logging("debug", data)
+            continue
 
     if mode or last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
         online_nodes = 0
@@ -342,7 +276,7 @@ def taptap_tele(mode):
                 state["stats"][sensor][op] = None
 
         for node_id in nodes.keys():
-            node_name = nodes[node_id]
+            node_name = nodes[node_id]["name"]
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
                 if (
@@ -417,6 +351,8 @@ def taptap_tele(mode):
                 logging("debug", f"Node {node_name} init as offline")
                 state["nodes"][node_name] = {
                     "node_id": node_id,
+                    "node_name": nodes[node_id]["name"],
+                    "node_barcode": nodes[node_id]["barcode"],
                     "gateway_id": 0,
                     "state": "offline",
                     "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
@@ -439,6 +375,9 @@ def taptap_tele(mode):
                 logging("info", f"Node {node_name} went offline")
                 state["nodes"][node_name].update(
                     {
+                        "node_id": node_id,
+                        "node_name": nodes[node_id]["name"],
+                        "node_barcode": nodes[node_id]["barcode"],
                         "state": "offline",
                         "voltage_in": 0,
                         "voltage_out": 0,
@@ -449,10 +388,25 @@ def taptap_tele(mode):
                         "power": 0,
                     }
                 )
+            elif (
+                state["nodes"][node_name]["node_id"] != node_id
+                or state["nodes"][node_name]["node_name"] != nodes[node_id]["name"]
+                or state["nodes"][node_name]["node_barcode"]
+                != nodes[node_id]["barcode"]
+            ):
+                # Node node was enumerated - update values
+                logging("info", f"Node {node_name} went offline")
+                state["nodes"][node_name].update(
+                    {
+                        "node_id": node_id,
+                        "node_name": nodes[node_id]["name"],
+                        "node_barcode": nodes[node_id]["barcode"],
+                    }
+                )
 
         # Calculate averages and set device state
         if online_nodes > 0:
-            if online_nodes < len(node_ids):
+            if online_nodes < len(node_names):
                 logging("info", f"Only {online_nodes} nodes reported online")
             else:
                 logging("debug", f"{online_nodes} nodes reported online")
@@ -494,6 +448,334 @@ def taptap_tele(mode):
         else:
             logging("error", "MQTT not connected!")
             raise MqttError("MQTT not connected!")
+
+
+def taptap_power_event(data, now):
+    logging("debug", "Into taptap_power_event")
+
+    for name in [
+        "gateway",
+        "node",
+        "voltage_in",
+        "voltage_out",
+        "current",
+        "dc_dc_duty_cycle",
+        "temperature",
+        "rssi",
+        "timestamp",
+    ]:
+        if name not in data.keys():
+            logging("warning", f"Missing required key: '{name}'")
+            logging("debug", data)
+            return False
+        elif name in ["gateway", "node"]:
+            if not isinstance(data[name], int):
+                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
+                logging("debug", data)
+                return False
+            data[name + "_id"] = str(data[name])
+            del data[name]
+        elif name in [
+            "voltage_in",
+            "voltage_out",
+            "current",
+            "dc_dc_duty_cycle",
+            "temperature",
+        ]:
+            if not isinstance(data[name], (float, int)):
+                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
+                logging("debug", data)
+                return False
+            if name == "dc_dc_duty_cycle":
+                data["duty_cycle"] = round(data.pop("dc_dc_duty_cycle") * 100, 2)
+        elif name in ["rssi"]:
+            if not isinstance(data[name], int):
+                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
+                logging("debug", data)
+                return False
+        elif name == "timestamp":
+            if not (isinstance(data[name], str)) and data[name]:
+                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
+                logging("debug", data)
+                return False
+            try:
+                if re.match(
+                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}[+-]\d{2}\:\d{2}$",
+                    data[name],
+                ):
+                    tmstp = datetime.strptime(
+                        data[name][0:26] + data[name][29:],
+                        "%Y-%m-%dT%H:%M:%S.%f%z",
+                    )
+                elif re.match(
+                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}[+-]\d{2}\:\d{2}$",
+                    data[name],
+                ):
+                    tmstp = datetime.strptime(
+                        data[name],
+                        "%Y-%m-%dT%H:%M:%S.%f%z",
+                    )
+                elif re.match(
+                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}Z$", data[name]
+                ):
+                    tmstp = datetime.strptime(
+                        data[name][0:26] + "Z",
+                        "%Y-%m-%dT%H:%M:%S.%fZ",
+                    )
+                elif re.match(
+                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}Z$", data[name]
+                ):
+                    tmstp = datetime.strptime(
+                        data[name],
+                        "%Y-%m-%dT%H:%M:%S.%fZ",
+                    )
+                else:
+                    logging(
+                        "warning", f"Invalid key 'timestamp' format: '{data[name]}'"
+                    )
+                    logging("debug", data)
+                    return False
+                data["timestamp"] = tmstp.isoformat()
+                data["tmstp"] = tmstp.timestamp()
+            except:
+                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
+                logging("debug", data)
+                return False
+            # Copy validated data into cache struct
+            if data["tmstp"] + int(config["TAPTAP"]["UPDATE"]) < now:
+                diff = round(now - data["tmstp"], 1)
+                logging(
+                    "warning",
+                    f"Old data detected: '{data[name]}', time difference: '{diff}'s",
+                )
+                logging("debug", data)
+                return False
+            else:
+                data["power"] = data["voltage_out"] * data["current"]
+                if not taptap_enumerate_node(data):
+                    # get node name and barcode and enumerate if necessary
+                    logging(
+                        "warning",
+                        f"Unable to enumerate node id: '{data['node_id']}'",
+                    )
+                    logging("debug", data)
+                    return False
+                else:
+                    return True
+    return False
+
+
+def taptap_infrastructure_event(data):
+    logging("debug", "Into taptap_infrastructure_event")
+    global nodes
+    global gateways
+    global nodes_names_ids
+
+    enumerated = False
+    pattern_id = re.compile(r"^\d+$")
+
+    if not "gateways" in data.keys() and isinstance(data["nodes"], dict):
+        logging("warning", f"Invalid 'gateways' key in infrastructure event")
+        logging("debug", data)
+    else:
+        for gateway_id in data["gateways"].keys():
+            if not pattern_id.match(gateway_id):
+                logging(
+                    "warning",
+                    f"Invalid gateway id in gateways key in the the infrastructure event: '{gateway_id}'",
+                )
+                logging("debug", data)
+                continue
+            elif not isinstance(data["gateways"][gateway_id], dict):
+                logging(
+                    "warning", f"Invalid gateways structure in the infrastructure event"
+                )
+                logging("debug", data)
+                continue
+            elif "address" in data["gateways"][gateway_id]:
+                if not gateway_id in gateways.keys():
+                    gateways[gateway_id] = {"address": "", "version": ""}
+                if re.match(
+                    r"^([0-9A-Fa-f]{2}[:-]){7}([0-9A-Fa-f]{2})$",
+                    data["gateways"][gateway_id]["address"],
+                ):
+                    logging(
+                        "debug",
+                        f"Found valid address: '{data['gateways'][gateway_id]['address']}' for getaway id: '{gateway_id}'",
+                    )
+                    gateways[gateway_id]["address"] = data["gateways"][gateway_id][
+                        "address"
+                    ]
+            elif "version" in data["gateways"][gateway_id]:
+                if not gateway_id in gateways.keys():
+                    gateways[gateway_id] = {"address": "", "version": ""}
+                if data["gateways"][gateway_id]["version"] != "":
+                    logging(
+                        "debug",
+                        f"Found valid version: '{data['gateways'][gateway_id]['version']}' for getaway id: '{gateway_id}'",
+                    )
+                    gateways[gateway_id]["version"] = data["gateways"][gateway_id][
+                        "version"
+                    ]
+            else:
+                if not gateway_id in gateways.keys():
+                    gateways[gateway_id] = {"address": "", "version": ""}
+                logging(
+                    "warning",
+                    f"Missing address or version keys in the gateways structure in the infrastructure event",
+                )
+                logging("debug", data)
+                continue
+
+        logging("debug", f"Processes gateways data in the infrastructure event")
+        logging("debug", gateways)
+
+    if not "nodes" in data.keys() and isinstance(data["nodes"], dict):
+        logging("warning", f"Invalid 'nodes' key in infrastructure event")
+        logging("debug", data)
+        return enumerated
+
+    for gateway_id in data["nodes"].keys():
+        if not pattern_id.match(gateway_id):
+            logging(
+                "warning",
+                f"Invalid gateway id in nodes key in in the infrastructure event: '{gateway_id}'",
+            )
+            logging("debug", data)
+            continue
+        elif not isinstance(data["nodes"][gateway_id], dict):
+            logging("warning", f"Invalid nodes structure in the infrastructure event")
+            logging("debug", data)
+            continue
+        for node_id in data["nodes"][gateway_id].keys():
+            if not pattern_id.match(node_id):
+                logging(
+                    "warning",
+                    f"Invalid nodes id in the infrastructure event: '{node_id}'",
+                )
+                logging("debug", data)
+            elif "barcode" not in data["nodes"][gateway_id][node_id].keys():
+                logging(
+                    "warning",
+                    f"Missing barcode in the infrastructure event for node id: '{node_id}'",
+                )
+                logging("debug", data)
+            elif not re.match(
+                r"^[0-9A-Z]\-[0-9A-Z]{7}$",
+                data["nodes"][gateway_id][node_id]["barcode"],
+            ):
+                logging(
+                    "warning",
+                    f"Invalid barcode format in the infrastructure event for node id: '{node_id}'",
+                )
+            elif (
+                data["nodes"][gateway_id][node_id]["barcode"]
+                not in nodes_barcodes_names.keys()
+            ):
+                logging(
+                    "warning",
+                    f"Unknown barcode detected in the infrastructure event: '{data['nodes'][gateway_id][node_id]['barcode']}'",
+                )
+                logging("debug", data)
+            else:
+                # If we reach this point, the barcode is valid
+                barcode = data["nodes"][gateway_id][node_id]["barcode"]
+                name = nodes_barcodes_names[barcode]
+                logging(
+                    "debug",
+                    f"Discovered valid barcode: {barcode} and node name: {name} for node id: {node_id}",
+                )
+                for key in nodes.keys():
+                    # Update mapping table
+                    if key != node_id:
+                        if (
+                            nodes[key]["barcode"] == barcode
+                            or nodes[key]["name"] == name
+                        ):
+                            # Some other Node is using this node barcode or name, delete those records
+                            logging(
+                                "info",
+                                f"Delete invalid barcode {barcode} and node name: {name} entries for node id: {key}",
+                            )
+                            nodes.pop(key)
+                            nodes_names_ids.pop(name)
+                            enumerated = True
+
+                if node_id not in nodes.keys():
+                    # discovered new permanent mapping
+                    logging(
+                        "info",
+                        f"Permanently enumerated node id: {node_id} to node name: {name} and barcode: {barcode}",
+                    )
+                    nodes[node_id] = {
+                        "barcode": barcode,
+                        "name": name,
+                    }
+                    nodes_names_ids[name] = node_id
+                    enumerated = True
+                elif (
+                    nodes[node_id]["barcode"] != barcode
+                    or nodes[node_id]["name"] != name
+                ):
+                    # there is different barcode or name for this node id - update it
+                    logging(
+                        "info",
+                        f"Updating node name {name} and barcode: {barcode} for node id: {node_id}",
+                    )
+                    nodes[node_id] = {
+                        "barcode": barcode,
+                        "name": name,
+                    }
+                    nodes_names_ids[name] = node_id
+                    enumerated = True
+
+    if not enumerated:
+        logging(
+            "debug",
+            f"Finished processing node data, no enumeration was required",
+        )
+    else:
+        logging("debug", f"Finished processing node data, nodes were enumerated")
+
+    logging("debug", nodes)
+
+    return enumerated
+
+
+def taptap_enumerate_node(data):
+    logging("debug", "Into taptap_enumerate_node")
+    global nodes
+    global nodes_names_ids
+
+    if data["node_id"] in nodes.keys():
+        # node was already discovered
+        logging(
+            "debug",
+            f"Node id: {data['node_id']} already enumerated to node name: '{nodes[data['node_id']]['name']}' and barcode: '{nodes[data['node_id']]['barcode']}'",
+        )
+        data["node_name"] = nodes[data["node_id"]]["name"]
+        data["node_barcode"] = nodes[data["node_id"]]["barcode"]
+        return True
+    else:
+        # need to find unused node name and assign it to node_id temporarily
+        for node_name in node_names:
+            if node_name not in nodes_names_ids.keys():
+                nodes[data["node_id"]] = {"barcode": "", "name": node_name}
+                nodes_names_ids[node_name] = data["node_id"]
+                data["node_name"] = node_name
+                data["node_barcode"] = ""
+                logging(
+                    "info",
+                    f"Temporary enumerated node id: '{data['node_id']}' to node name: {node_name}",
+                )
+                return True
+
+    logging(
+        "warning",
+        f"Unable to enumerate node id: '{data['node_id']}' - no more node names available!",
+    )
+    logging("debug", nodes_names_ids)
+    return False
 
 
 def taptap_discovery():
@@ -569,7 +851,7 @@ def taptap_discovery_device():
                     )
 
         # Node sensors components
-        for node_name in nodes.values():
+        for node_name in node_names:
             node_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + node_name
             for sensor in sensors.keys():
                 sensor_id = node_id + "_" + sensor
@@ -587,6 +869,7 @@ def taptap_discovery_device():
                     + "."
                     + sensor
                     + " }}",
+                    "json_attributes_topic": "{{}}",
                 }
 
                 if str_to_bool(config["HA"]["ENTITY_AVAILABILITY"]):
@@ -697,7 +980,7 @@ def taptap_discovery_legacy():
                     )
 
         # Node sensors components
-        for node_name in nodes.values():
+        for node_name in node_names:
             node_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + node_name
             for sensor in sensors.keys():
                 sensor_id = node_id + "_" + sensor
@@ -778,7 +1061,9 @@ def taptap_init():
             "Starting TapTap process: "
             + config["TAPTAP"]["BINARY"]
             + " observe --serial "
-            + config["TAPTAP"]["SERIAL"],
+            + config["TAPTAP"]["SERIAL"]
+            + " --persistent-file "
+            + config["TAPTAP"]["PERSISTENT_FILE"],
         )
         taptap = subprocess.Popen(
             [
@@ -786,6 +1071,8 @@ def taptap_init():
                 "observe",
                 "--serial",
                 config["TAPTAP"]["SERIAL"],
+                "--persistent-file",
+                config["TAPTAP"]["PERSISTENT_FILE"],
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -799,7 +1086,9 @@ def taptap_init():
             + " observe --tcp "
             + config["TAPTAP"]["ADDRESS"]
             + " --port "
-            + config["TAPTAP"]["PORT"],
+            + config["TAPTAP"]["PORT"]
+            + " --persistent-file "
+            + config["TAPTAP"]["PERSISTENT_FILE"],
         )
         taptap = subprocess.Popen(
             [
@@ -809,6 +1098,8 @@ def taptap_init():
                 config["TAPTAP"]["ADDRESS"],
                 "--port",
                 config["TAPTAP"]["PORT"],
+                "--persistent-file",
+                config["TAPTAP"]["PERSISTENT_FILE"],
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -835,11 +1126,11 @@ def taptap_cleanup():
         if taptap.poll() is not None:
             logging("info", "Terminating TapTap process.")
             taptap.terminate()
-            time.sleep(1)
+            time.sleep(5)
             if taptap.poll() is not None:
                 logging("warning", "TapTap process is still running, sending kill!")
                 taptap.kill()
-                time.sleep(3)
+                time.sleep(5)
                 if taptap.poll() is not None:
                     logging(
                         "error", "TapTap process is still running, terminating anyway!"
@@ -1014,5 +1305,6 @@ while True:
             sys.exit(0)
         else:
             logging("error", f"Unknown exception, aborting application")
+            logging("debug", f"Exception details: {traceback.format_exc()}")
             # Exit with error
             sys.exit(1)

@@ -23,10 +23,14 @@ SERIAL =
 ADDRESS = 192.168.1.50
 # IP port of the Ethernet to Modbus convertor, typically 502
 PORT = 502
-# list of the Tigo modules ids, these typically starts at 2
-MODULE_IDS = 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17
-# friendly names to be used in for the Tigo modules
-MODULE_NAMES = A01,A02,A03,A04,A05,A06,A07,A08,A09,A10,A11,A12,A13,A14,A15,A16
+# Modules friendly names defined by user to be used in the MQTT topics for the Tigo modules monitoring
+MODULE_NAMES = A01,A02,A03,A04,A05
+# Tigo modules serial numbers from the barcodes stickers in the X-XXXXXX format, multiple values separated by commas.
+# Number of the serial listed in the MODULE_BARCODES shall be same as number of names in the MODULE_NAMES
+# Program will log any unknown serial number so you can use it to discover if you do not know those.
+# Be aware that messages with serial numbers are emitted rarely, very often only during night time!
+# Wait as lest 24hrs for the complete discovery!
+MODULE_BARCODES = A-AAAAAAA, A-BAAAAAA, A-CAAAAAA, A-DAAAAAA, A-EAAAAAA
 # prefix for TapTap MQTT topic prefix
 TOPIC_PREFIX = taptap
 # name to be use in the TapTap MQTT topics for this installation
@@ -35,6 +39,8 @@ TOPIC_NAME = tigo1
 TIMEOUT = 180
 # how often MQTT state topic shall be updated
 UPDATE = 10
+# persistent data file for taptap to store detected modules barcodes to be used for fast topology data init during restarts
+PERSISTENT_FILE = ./taptap.json
 
 [HA]
 # MQTT topic to post Home Assistant discovery message, set empty to disable MQTT discovery
