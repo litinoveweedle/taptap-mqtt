@@ -27,7 +27,7 @@ If you are looking for seamlessly integrated solution for HomeAssistant please c
     - duty_cycle ( "class": "power_factor", "unit": "%" )
     - rssi ( "class": "signal_strength", "unit": "dB"  )
     - timestamp ("class": "timestamp", "unit": None )    # time node was last seen on the bus
-    - node_barcode ("class": None, "unit": None )        # Tigo optimizer serial number
+    - node_serial ("class": None, "unit": None )        # Tigo optimizer serial number
   
 - statistic data for all optimizers (nodes) connected to the Tigo CCA:
   - sensor:

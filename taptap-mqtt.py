@@ -56,15 +56,60 @@ stats_sensors = [
     "rssi",
 ]
 sensors = {
-    "voltage_in": {"class": "voltage", "unit": "V", "round": 2},
-    "voltage_out": {"class": "voltage", "unit": "V", "round": 2},
-    "current": {"class": "current", "unit": "A", "round": 2},
-    "power": {"class": "power", "unit": "W", "round": 0},
-    "temperature": {"class": "temperature", "unit": "°C", "round": 1},
-    "duty_cycle": {"class": "power_factor", "unit": "%", "round": 0},
-    "rssi": {"class": "signal_strength", "unit": "dB", "round": 0},
-    "timestamp": {"class": "timestamp", "unit": None, "round": None},
-    "node_barcode": {"class": None, "unit": None, "round": None},
+    "voltage_in": {
+        "class": "voltage",
+        "unit": "V",
+        "round": 2,
+        "track_availability": True,
+    },
+    "voltage_out": {
+        "class": "voltage",
+        "unit": "V",
+        "round": 2,
+        "track_availability": True,
+    },
+    "current": {
+        "class": "current",
+        "unit": "A",
+        "round": 2,
+        "track_availability": True,
+    },
+    "power": {
+        "class": "power",
+        "unit": "W",
+        "round": 0,
+        "track_availability": True,
+    },
+    "temperature": {
+        "class": "temperature",
+        "unit": "°C",
+        "round": 1,
+        "track_availability": True,
+    },
+    "duty_cycle": {
+        "class": "power_factor",
+        "unit": "%",
+        "round": 0,
+        "track_availability": True,
+    },
+    "rssi": {
+        "class": "signal_strength",
+        "unit": "dB",
+        "round": 0,
+        "track_availability": True,
+    },
+    "timestamp": {
+        "class": "timestamp",
+        "unit": None,
+        "round": None,
+        "track_availability": False,
+    },
+    "node_serial": {
+        "class": None,
+        "unit": None,
+        "round": None,
+        "track_availability": False,
+    },
 }
 
 config_validation = {
@@ -82,8 +127,7 @@ config_validation = {
         "SERIAL?": r"^\/dev\/tty\w+$",
         "ADDRESS?": r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$",
         "PORT": r"^\d+$",
-        "MODULE_NAMES": r"^\s*\w+\s*(\,\s*\w+\s*)*$",
-        "MODULE_BARCODES": r"^[0-9A-Z]\-[0-9A-Z]{7}\s*(\,\s*[0-9A-Z]\-[0-9A-Z]{7}\s*)*$",
+        "MODULES_SERIALS": r"^\s*\w+\s*\:\s*[0-9A-Z]\-[0-9A-Z]{7}\s*(\,\s*\w+\s*\:\s*[0-9A-Z]\-[0-9A-Z]{7}\s*)*$",
         "TOPIC_PREFIX": r"^(\w+)(\/\w+)*",
         "TOPIC_NAME": r"^(\w+)$",
         "TIMEOUT": r"^\d+$",
@@ -155,41 +199,28 @@ if (
     exit(1)
 
 
-node_names = list(map(str.strip, config["TAPTAP"]["MODULE_NAMES"].lower().split(",")))
-if not len(node_names) or not (all([re.match(r"^\w+$", val) for val in node_names])):
-    logging(
-        "error",
-        f"MODULE_NAMES shall be comma separated list of modules names: {node_names}",
-    )
+nodes_names = []
+nodes_serials = []
+for entry in list(map(str.strip, config["TAPTAP"]["MODULEs_SERIALS"].split(","))):
+    (node_name, node_serial) = list(map(str.strip, entry.split(":")))
+    nodes_names.append(node_name.lower())
+    nodes_serials.append(node_serial.upper())
+if not len(nodes_names) or not len(nodes_serials):
+    logging("error", "MODULES_SERIALS need to have at least one module defined")
     exit(1)
 
-node_barcodes = list(map(str.strip, config["TAPTAP"]["MODULE_BARCODES"].split(",")))
-if not len(node_barcodes) or not (
-    all([re.match(r"^[0-9A-Z]\-[0-9A-Z]{7}$", val) for val in node_barcodes])
-):
-    logging(
-        "error",
-        f"MODULE_BARCODES shall be comma separated list of modules barcodes: {node_barcodes}",
-    )
-    exit(1)
-
-if len(node_barcodes) != len(node_names):
-    logging(
-        "error", "MODULE_BARCODES and MODULE_NAMES shall have same number of modules"
-    )
-    exit(1)
 
 # Init nodes dictionary
-# node barcodes -> node names mapping
-nodes_barcodes_names = dict(zip(node_barcodes, node_names))
+# node serials -> node names mapping
+nodes_serials_names = dict(zip(nodes_serials, nodes_names))
 # node names -> node ids mapping
 nodes_names_ids = {}
-# node ids -> node names + barcodes mapping
+# node ids -> node names + serials mapping
 nodes = {}
 gateways = {}
 
 # Init cache struct
-cache = dict.fromkeys(node_names, {})
+cache = dict.fromkeys(nodes_names, {})
 
 # Init discovery struct
 discovery = None
@@ -253,7 +284,7 @@ def taptap_tele(mode):
                 logging("debug", "Successfully processed infrastructure event")
                 logging("debug", data)
                 logging("info", "Nodes were enumerated, flushing message cache")
-                cache = dict.fromkeys(node_names, {})
+                cache = dict.fromkeys(nodes_names, {})
         elif data["event_type"] == "power_report":
             logging("debug", "Received power_report event")
             logging("debug", data)
@@ -276,7 +307,7 @@ def taptap_tele(mode):
                 state["stats"][sensor][op] = None
 
         for node_id in nodes.keys():
-            node_name = nodes[node_id]["name"]
+            node_name = nodes[node_id]["node_name"]
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
                 if (
@@ -351,8 +382,8 @@ def taptap_tele(mode):
                 logging("debug", f"Node {node_name} init as offline")
                 state["nodes"][node_name] = {
                     "node_id": node_id,
-                    "node_name": nodes[node_id]["name"],
-                    "node_barcode": nodes[node_id]["barcode"],
+                    "node_name": nodes[node_id]["node_name"],
+                    "node_serial": nodes[node_id]["node_serial"],
                     "gateway_id": 0,
                     "state": "offline",
                     "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
@@ -376,8 +407,8 @@ def taptap_tele(mode):
                 state["nodes"][node_name].update(
                     {
                         "node_id": node_id,
-                        "node_name": nodes[node_id]["name"],
-                        "node_barcode": nodes[node_id]["barcode"],
+                        "node_name": nodes[node_id]["node_name"],
+                        "node_serial": nodes[node_id]["node_serial"],
                         "state": "offline",
                         "voltage_in": 0,
                         "voltage_out": 0,
@@ -390,23 +421,23 @@ def taptap_tele(mode):
                 )
             elif (
                 state["nodes"][node_name]["node_id"] != node_id
-                or state["nodes"][node_name]["node_name"] != nodes[node_id]["name"]
-                or state["nodes"][node_name]["node_barcode"]
-                != nodes[node_id]["barcode"]
+                or state["nodes"][node_name]["node_name"] != nodes[node_id]["node_name"]
+                or state["nodes"][node_name]["node_serial"]
+                != nodes[node_id]["node_serial"]
             ):
                 # Node node was enumerated - update values
                 logging("info", f"Node {node_name} went offline")
                 state["nodes"][node_name].update(
                     {
                         "node_id": node_id,
-                        "node_name": nodes[node_id]["name"],
-                        "node_barcode": nodes[node_id]["barcode"],
+                        "node_name": nodes[node_id]["node_name"],
+                        "node_serial": nodes[node_id]["node_serial"],
                     }
                 )
 
         # Calculate averages and set device state
         if online_nodes > 0:
-            if online_nodes < len(node_names):
+            if online_nodes < len(nodes_names):
                 logging("info", f"Only {online_nodes} nodes reported online")
             else:
                 logging("debug", f"{online_nodes} nodes reported online")
@@ -553,7 +584,7 @@ def taptap_power_event(data, now):
             else:
                 data["power"] = data["voltage_out"] * data["current"]
                 if not taptap_enumerate_node(data):
-                    # get node name and barcode and enumerate if necessary
+                    # get node name and serial and enumerate if necessary
                     logging(
                         "warning",
                         f"Unable to enumerate node id: '{data['node_id']}'",
@@ -670,63 +701,63 @@ def taptap_infrastructure_event(data):
                 )
             elif (
                 data["nodes"][gateway_id][node_id]["barcode"]
-                not in nodes_barcodes_names.keys()
+                not in nodes_serials_names.keys()
             ):
                 logging(
                     "warning",
-                    f"Unknown barcode detected in the infrastructure event: '{data['nodes'][gateway_id][node_id]['barcode']}'",
+                    f"Unknown serial detected in the infrastructure event: '{data['nodes'][gateway_id][node_id]['barcode']}'",
                 )
                 logging("debug", data)
             else:
-                # If we reach this point, the barcode is valid
-                barcode = data["nodes"][gateway_id][node_id]["barcode"]
-                name = nodes_barcodes_names[barcode]
+                # If we reach this point, the serial is valid
+                node_serial = data["nodes"][gateway_id][node_id]["barcode"]
+                node_name = nodes_serials_names[node_serial]
                 logging(
                     "debug",
-                    f"Discovered valid barcode: {barcode} and node name: {name} for node id: {node_id}",
+                    f"Discovered valid serial: {node_serial} and node name: {node_name} for node id: {node_id}",
                 )
                 for key in nodes.keys():
                     # Update mapping table
                     if key != node_id:
                         if (
-                            nodes[key]["barcode"] == barcode
-                            or nodes[key]["name"] == name
+                            nodes[key]["node_serial"] == node_serial
+                            or nodes[key]["node_name"] == node_name
                         ):
-                            # Some other Node is using this node barcode or name, delete those records
+                            # Some other Node is using this node serial or name, delete those records
                             logging(
                                 "info",
-                                f"Delete invalid barcode {barcode} and node name: {name} entries for node id: {key}",
+                                f"Delete invalid serial {node_serial} and node name: {node_name} entries for node id: {key}",
                             )
                             nodes.pop(key)
-                            nodes_names_ids.pop(name)
+                            nodes_names_ids.pop(node_name)
                             enumerated = True
 
                 if node_id not in nodes.keys():
                     # discovered new permanent mapping
                     logging(
                         "info",
-                        f"Permanently enumerated node id: {node_id} to node name: {name} and barcode: {barcode}",
+                        f"Permanently enumerated node id: {node_id} to node name: {node_name} and serial: {node_serial}",
                     )
                     nodes[node_id] = {
-                        "barcode": barcode,
-                        "name": name,
+                        "node_serial": node_serial,
+                        "node_name": node_name,
                     }
-                    nodes_names_ids[name] = node_id
+                    nodes_names_ids[node_name] = node_id
                     enumerated = True
                 elif (
-                    nodes[node_id]["barcode"] != barcode
-                    or nodes[node_id]["name"] != name
+                    nodes[node_id]["node_serial"] != node_serial
+                    or nodes[node_id]["node_name"] != node_name
                 ):
-                    # there is different barcode or name for this node id - update it
+                    # there is different serial or name for this node id - update it
                     logging(
                         "info",
-                        f"Updating node name {name} and barcode: {barcode} for node id: {node_id}",
+                        f"Updating node name {node_name} and serial: {node_serial} for node id: {node_id}",
                     )
                     nodes[node_id] = {
-                        "barcode": barcode,
-                        "name": name,
+                        "node_serial": node_serial,
+                        "node_name": node_name,
                     }
-                    nodes_names_ids[name] = node_id
+                    nodes_names_ids[node_name] = node_id
                     enumerated = True
 
     if not enumerated:
@@ -751,19 +782,19 @@ def taptap_enumerate_node(data):
         # node was already discovered
         logging(
             "debug",
-            f"Node id: {data['node_id']} already enumerated to node name: '{nodes[data['node_id']]['name']}' and barcode: '{nodes[data['node_id']]['barcode']}'",
+            f"Node id: {data['node_id']} already enumerated to node name: '{nodes[data['node_id']]['node_name']}' and serial: '{nodes[data['node_id']]['node_serial']}'",
         )
-        data["node_name"] = nodes[data["node_id"]]["name"]
-        data["node_barcode"] = nodes[data["node_id"]]["barcode"]
+        data["node_name"] = nodes[data["node_id"]]["node_name"]
+        data["node_serial"] = nodes[data["node_id"]]["node_serial"]
         return True
     else:
         # need to find unused node name and assign it to node_id temporarily
-        for node_name in node_names:
+        for node_name in nodes_names:
             if node_name not in nodes_names_ids.keys():
-                nodes[data["node_id"]] = {"barcode": "", "name": node_name}
+                nodes[data["node_id"]] = {"node_serial": "", "node_name": node_name}
                 nodes_names_ids[node_name] = data["node_id"]
                 data["node_name"] = node_name
-                data["node_barcode"] = ""
+                data["node_serial"] = ""
                 logging(
                     "info",
                     f"Temporary enumerated node id: '{data['node_id']}' to node name: {node_name}",
@@ -832,7 +863,10 @@ def taptap_discovery_device():
                     + op
                     + " }}",
                 }
-                if str_to_bool(config["HA"]["ENTITY_AVAILABILITY"]):
+                if (
+                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
+                    and sensors[sensor]["track_availability"]
+                ):
                     discovery["components"][sensor_id].update(
                         {
                             "availability_mode": "all",
@@ -851,7 +885,7 @@ def taptap_discovery_device():
                     )
 
         # Node sensors components
-        for node_name in node_names:
+        for node_name in nodes_names:
             node_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + node_name
             for sensor in sensors.keys():
                 sensor_id = node_id + "_" + sensor
@@ -872,7 +906,10 @@ def taptap_discovery_device():
                     "json_attributes_topic": "{{}}",
                 }
 
-                if str_to_bool(config["HA"]["ENTITY_AVAILABILITY"]):
+                if (
+                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
+                    and sensors[sensor]["track_availability"]
+                ):
                     discovery["components"][sensor_id].update(
                         {
                             "availability_mode": "all",
@@ -961,7 +998,10 @@ def taptap_discovery_legacy():
                     + " }}",
                     "qos": config["MQTT"]["QOS"],
                 }
-                if str_to_bool(config["HA"]["ENTITY_AVAILABILITY"]):
+                if (
+                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
+                    and sensors[sensor]["track_availability"]
+                ):
                     discovery["sensor/" + sensor_id].update(
                         {
                             "availability_mode": "all",
@@ -980,7 +1020,7 @@ def taptap_discovery_legacy():
                     )
 
         # Node sensors components
-        for node_name in node_names:
+        for node_name in nodes_names:
             node_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + node_name
             for sensor in sensors.keys():
                 sensor_id = node_id + "_" + sensor
@@ -1002,7 +1042,10 @@ def taptap_discovery_legacy():
                     "qos": config["MQTT"]["QOS"],
                 }
 
-                if str_to_bool(config["HA"]["ENTITY_AVAILABILITY"]):
+                if (
+                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
+                    and sensors[sensor]["track_availability"]
+                ):
                     discovery["sensor/" + sensor_id].update(
                         {
                             "availability_mode": "all",
@@ -1123,15 +1166,15 @@ def taptap_cleanup():
     global taptap
 
     if taptap:
-        if taptap.poll() is not None:
+        if taptap.poll() is None:
             logging("info", "Terminating TapTap process.")
             taptap.terminate()
             time.sleep(5)
-            if taptap.poll() is not None:
+            if taptap.poll() is None:
                 logging("warning", "TapTap process is still running, sending kill!")
                 taptap.kill()
                 time.sleep(5)
-                if taptap.poll() is not None:
+                if taptap.poll() is None:
                     logging(
                         "error", "TapTap process is still running, terminating anyway!"
                     )
