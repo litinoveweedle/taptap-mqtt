@@ -60,55 +60,55 @@ sensors = {
         "class": "voltage",
         "unit": "V",
         "round": 2,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "voltage_out": {
         "class": "voltage",
         "unit": "V",
         "round": 2,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "current": {
         "class": "current",
         "unit": "A",
         "round": 2,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "power": {
         "class": "power",
         "unit": "W",
         "round": 0,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "temperature": {
         "class": "temperature",
         "unit": "°C",
         "round": 1,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "duty_cycle": {
         "class": "power_factor",
         "unit": "%",
         "round": 0,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "rssi": {
         "class": "signal_strength",
         "unit": "dB",
         "round": 0,
-        "track_availability": True,
+        "avail_key": "state",
     },
     "timestamp": {
         "class": "timestamp",
         "unit": None,
         "round": None,
-        "track_availability": True,
+        "avail_key": "init_state",
     },
     "node_serial": {
         "class": None,
         "unit": None,
         "round": None,
-        "track_availability": False,
+        "avail_key": "",
     },
 }
 
@@ -320,6 +320,7 @@ def taptap_tele(mode):
                 online_nodes += 1
                 last = max(cache[node_name].keys())
                 state["nodes"][node_name]["state"] = "online"
+                state["nodes"][node_name]["init_state"] = "online"
                 state["nodes"][node_name]["tmstp"] = cache[node_name][last]["tmstp"]
                 state["nodes"][node_name]["timestamp"] = cache[node_name][last][
                     "timestamp"
@@ -386,6 +387,7 @@ def taptap_tele(mode):
                     "node_serial": nodes[node_id]["node_serial"],
                     "gateway_id": 0,
                     "state": "offline",
+                    "init_state": "offline",
                     "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
                     "tmstp": 0,
                     "voltage_in": 0,
@@ -865,7 +867,7 @@ def taptap_discovery_device():
                 }
                 if (
                     str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["track_availability"]
+                    and sensors[sensor]["avail_key"]
                 ):
                     discovery["components"][sensor_id].update(
                         {
@@ -874,7 +876,9 @@ def taptap_discovery_device():
                                 {"topic": lwt_topic},
                                 {
                                     "topic": state_topic,
-                                    "value_template": "{{ value_json.state }}",
+                                    "value_template": "{{ value_json."
+                                    + sensors[sensor]["avail_key"]
+                                    + " }}",
                                 },
                             ],
                         }
@@ -908,7 +912,7 @@ def taptap_discovery_device():
 
                 if (
                     str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["track_availability"]
+                    and sensors[sensor]["avail_key"]
                 ):
                     discovery["components"][sensor_id].update(
                         {
@@ -919,7 +923,9 @@ def taptap_discovery_device():
                                     "topic": state_topic,
                                     "value_template": "{{ value_json.nodes."
                                     + node_name
-                                    + ".state }}",
+                                    + "."
+                                    + sensors[sensor]["avail_key"]
+                                    + " }}",
                                 },
                             ],
                         }
@@ -1000,7 +1006,7 @@ def taptap_discovery_legacy():
                 }
                 if (
                     str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["track_availability"]
+                    and sensors[sensor]["avail_key"]
                 ):
                     discovery["sensor/" + sensor_id].update(
                         {
@@ -1009,7 +1015,9 @@ def taptap_discovery_legacy():
                                 {"topic": lwt_topic},
                                 {
                                     "topic": state_topic,
-                                    "value_template": "{{ value_json.state }}",
+                                    "value_template": "{{ value_json."
+                                    + sensors[sensor]["avail_key"]
+                                    + " }}",
                                 },
                             ],
                         }
@@ -1044,7 +1052,7 @@ def taptap_discovery_legacy():
 
                 if (
                     str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["track_availability"]
+                    and sensors[sensor]["avail_key"]
                 ):
                     discovery["sensor/" + sensor_id].update(
                         {
@@ -1055,7 +1063,9 @@ def taptap_discovery_legacy():
                                     "topic": state_topic,
                                     "value_template": "{{ value_json.nodes."
                                     + node_name
-                                    + ".state }}",
+                                    + "."
+                                    + sensors[sensor]["avail_key"]
+                                    + " }}",
                                 },
                             ],
                         }
