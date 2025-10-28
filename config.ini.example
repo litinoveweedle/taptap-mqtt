@@ -13,41 +13,44 @@ USER = mqttuser
 PASS = mqttpass
 
 [TAPTAP]
-# log level, possible values are error, warning, info, debug
+# Log level, possible values are error, warning, info, debug.
 LOG_LEVEL = warning
 # Path to the taptap binary
 BINARY = ./taptap
-# serial device to use like /dev/ACM0, set empty if using Modbus to Ethernet to Modbus convertor
+# Serial device to use like /dev/ACM0, set empty if using Modbus to Ethernet to Modbus converter.
 SERIAL = 
-# IP address of the Ethernet to Modbus convertor, set empty if using usb/serial Modus convertor
+# IP address of the Ethernet to Modbus convertor, set empty if using usb/serial Modus converter.
 ADDRESS = 192.168.1.50
 # IP port of the Ethernet to Modbus convertor, typically 502
 PORT = 502
-# list of the Tigo modules ids, these typically starts at 2
-MODULE_IDS = 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17
-# friendly names to be used in for the Tigo modules
-MODULE_NAMES = A01,A02,A03,A04,A05,A06,A07,A08,A09,A10,A11,A12,A13,A14,A15,A16
-# prefix for TapTap MQTT topic prefix
+# Tuple of modules friendly names as defined by user and modules serial numbers in the format NAME1:SERIAL1, NAME2:SERIAL2,...
+# Tigo modules serial numbers can be found on the modules barcode stickers or in the Tigo cloud. Serials have X-XXXXXX format.
+# Program will log any unknown serial number so you can use it to discover serials if you do not know them.
+# Be aware that messages with serial numbers are emitted rarely, very often only during night time! Wait as lest 24hrs for the complete discovery!
+MODULES_SERIALS = A01:A-AAAAAAA, A02: A-BAAAAAA, A03:A-CAAAAAA, A04:A-DAAAAAA, A05:A-EAAAAAA
+# MQTT path to be used for TapTap MQTT topics.
 TOPIC_PREFIX = taptap
-# name to be use in the TapTap MQTT topics for this installation
+# Name to be use as device name in Home Assistant and also in the TapTap MQTT topics for this installation.
 TOPIC_NAME = tigo1
-# time after which Tigo module is declared offline if no message is received
+# Time after which Tigo module is declared offline if no message is received.
 TIMEOUT = 180
-# how often MQTT state topic shall be updated
+# How often MQTT state topic shall be updated.
 UPDATE = 10
+# Persistent data file for taptap to store detected modules serial numbers to be used for fast topology data init during restarts.
+PERSISTENT_FILE = ./taptap.json
 
 [HA]
-# MQTT topic to post Home Assistant discovery message, set empty to disable MQTT discovery
+# MQTT topic to post Home Assistant discovery message, set empty to disable MQTT discovery.
 DISCOVERY_PREFIX = homeassistant
-# Use Home Assistant older method of per component discovery payload, set to 'true' for OpenHab or for HA < 2024.12, default 'false'
+# Use Home Assistant older method of per component discovery payload, set to 'true' for OpenHab or for HA < 2024.12, default 'false'.
 DISCOVERY_LEGACY = false
-# MQTT topic to monitor home Assistant to come online to re-post discovery message, set empty to disable this feature
+# MQTT topic to monitor home Assistant to come online to re-post discovery message, set empty to disable this feature.
 BIRTH_TOPIC = homeassistant/status
-# do not render home Assistant entities 'UNAVAILABLE' if no message received within TIMEOUT, set to 'true' or 'false'
+# Do not render home Assistant entities 'UNAVAILABLE' if no message received within TIMEOUT, set to 'true' or 'false'.
 ENTITY_AVAILABILITY = true
 
 [RUNTIME]
-# after how many recoverable errors application will terminate, set to 0 for unlimited
+# Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
 MAX_ERROR = 15
-# application state file to be used by external watchdog, application update it regularly with the UNIX timestamp if running
+# Application state file to be used by external watchdog, application update it regularly with the UNIX timestamp if running.
 STATE_FILE = /run/taptap/taptap.state
