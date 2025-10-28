@@ -28,9 +28,9 @@ PORT = 502
 # Program will log any unknown serial number so you can use it to discover serials if you do not know them.
 # Be aware that messages with serial numbers are emitted rarely, very often only during night time! Wait as lest 24hrs for the complete discovery!
 MODULES_SERIALS = A01:A-AAAAAAA, A02: A-BAAAAAA, A03:A-CAAAAAA, A04:A-DAAAAAA, A05:A-EAAAAAA
-# Prefix for TapTap MQTT topic prefix.
+# MQTT path to be used for TapTap MQTT topics.
 TOPIC_PREFIX = taptap
-# Name to be use in the TapTap MQTT topics for this installation.
+# Name to be use as device name in Home Assistant and also in the TapTap MQTT topics for this installation.
 TOPIC_NAME = tigo1
 # Time after which Tigo module is declared offline if no message is received.
 TIMEOUT = 180

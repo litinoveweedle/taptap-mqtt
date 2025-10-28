@@ -203,8 +203,8 @@ nodes_names = []
 nodes_serials = []
 for entry in list(map(str.strip, config["TAPTAP"]["MODULEs_SERIALS"].split(","))):
     (node_name, node_serial) = list(map(str.strip, entry.split(":")))
-    nodes_names.append(node_name.lower())
-    nodes_serials.append(node_serial.upper())
+    nodes_names.append(node_name)
+    nodes_serials.append(node_serial)
 if not len(nodes_names) or not len(nodes_serials):
     logging("error", "MODULES_SERIALS need to have at least one module defined")
     exit(1)
@@ -474,6 +474,7 @@ def taptap_tele(mode):
             )
             # Sent State update
             logging("debug", f"Updating MQTT state topic {state_topic}")
+            logging("debug", json.dumps(state))
             client.publish(
                 state_topic, payload=json.dumps(state), qos=int(config["MQTT"]["QOS"])
             )
@@ -825,24 +826,24 @@ def taptap_discovery_device():
     logging("debug", "Into taptap_discovery_device")
     global discovery
 
+    object_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, "taptap_" + config["TAPTAP"]["TOPIC_NAME"])
+    )
+
     if discovery is None:
         discovery = {}
         discovery["device"] = {
-            "ids": str(
-                uuid.uuid5(
-                    uuid.NAMESPACE_URL, "taptap_" + config["TAPTAP"]["TOPIC_NAME"]
-                )
-            ),
+            "identifiers": object_id,
             "name": config["TAPTAP"]["TOPIC_NAME"].title(),
-            "mf": "Tigo",
-            "mdl": "Tigo CCA",
+            "manufacturer": "Tigo",
+            "model": "Tigo CCA",
         }
 
         # Origin
         discovery["origin"] = {
             "name": "TapTap MQTT Bridge",
-            "sw": "0.1",
-            "url": "https://github.com/litinoveweedle/taptap2mqtt",
+            "sw_version": "0.1",
+            "support_url": "https://github.com/litinoveweedle/taptap2mqtt",
         }
 
         # Statistic sensors components
@@ -852,10 +853,10 @@ def taptap_discovery_device():
                 sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + sensor + "_" + op
                 sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
                 discovery["components"][sensor_id] = {
-                    "p": "sensor",
+                    "platform": "sensor",
                     "name": (sensor + " " + op).replace("_", " ").title(),
                     "unique_id": sensor_uuid,
-                    "default_entity_id": sensor_id,
+                    "default_entity_id": "sensor." + sensor_id,
                     "device_class": sensors[sensor]["class"],
                     "unit_of_measurement": sensors[sensor]["unit"],
                     "state_topic": state_topic,
@@ -895,10 +896,10 @@ def taptap_discovery_device():
                 sensor_id = node_id + "_" + sensor
                 sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
                 discovery["components"][sensor_id] = {
-                    "p": "sensor",
+                    "platform": "sensor",
                     "name": (node_name + " " + sensor).replace("_", " ").title(),
                     "unique_id": sensor_uuid,
-                    "default_entity_id": sensor_id,
+                    "default_entity_id": "sensor." + sensor_id,
                     "device_class": sensors[sensor]["class"],
                     "unit_of_measurement": sensors[sensor]["unit"],
                     "state_topic": state_topic,
@@ -942,10 +943,7 @@ def taptap_discovery_device():
         if client and client.is_connected():
             # Sent discovery
             discovery_topic = (
-                config["HA"]["DISCOVERY_PREFIX"]
-                + "/device/"
-                + config["TAPTAP"]["TOPIC_NAME"]
-                + "/config"
+                config["HA"]["DISCOVERY_PREFIX"] + "/device/" + object_id + "/config"
             )
             logging("debug", f"Publish MQTT discovery topic {discovery_topic}")
             logging("debug", discovery)
@@ -963,24 +961,24 @@ def taptap_discovery_legacy():
     logging("debug", "Into taptap_discovery_legacy")
     global discovery
 
+    object_id = str(
+        uuid.uuid5(uuid.NAMESPACE_URL, "taptap_" + config["TAPTAP"]["TOPIC_NAME"])
+    )
+
     if discovery is None:
         discovery = {}
         device = {
-            "ids": str(
-                uuid.uuid5(
-                    uuid.NAMESPACE_URL, "taptap_" + config["TAPTAP"]["TOPIC_NAME"]
-                )
-            ),
+            "identifiers": object_id,
             "name": config["TAPTAP"]["TOPIC_NAME"].title(),
-            "mf": "Tigo",
-            "mdl": "Tigo CCA",
+            "manufacturer": "Tigo",
+            "model": "Tigo CCA",
         }
 
         # Origin
         origin = {
             "name": "TapTap MQTT Bridge",
-            "sw": "0.1",
-            "url": "https://github.com/litinoveweedle/taptap2mqtt",
+            "sw_version": "0.1",
+            "support_url": "https://github.com/litinoveweedle/taptap2mqtt",
         }
 
         # Statistic sensors components
@@ -988,12 +986,12 @@ def taptap_discovery_legacy():
             for op in stats_ops:
                 sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + sensor + "_" + op
                 sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
-                discovery["sensor/" + sensor_id] = {
+                discovery["sensor/" + object_id + "/" + sensor_id] = {
                     "device": device,
                     "origin": origin,
-                    "name": (sensor + " " + op).replace("_", " ").title(),
+                    "name": sensor_id.replace("_", " ").title(),
                     "unique_id": sensor_uuid,
-                    "object_id": sensor_id,
+                    "default_entity_id": "sensor." + sensor_id,
                     "device_class": sensors[sensor]["class"],
                     "unit_of_measurement": sensors[sensor]["unit"],
                     "state_topic": state_topic,
@@ -1008,7 +1006,7 @@ def taptap_discovery_legacy():
                     str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
                     and sensors[sensor]["avail_key"]
                 ):
-                    discovery["sensor/" + sensor_id].update(
+                    discovery["sensor/" + object_id + "/" + sensor_id].update(
                         {
                             "availability_mode": "all",
                             "availability": [
@@ -1023,7 +1021,7 @@ def taptap_discovery_legacy():
                         }
                     )
                 else:
-                    discovery["sensor/" + sensor_id].update(
+                    discovery["sensor/" + object_id + "/" + sensor_id].update(
                         {"availability_topic": lwt_topic}
                     )
 
@@ -1033,12 +1031,12 @@ def taptap_discovery_legacy():
             for sensor in sensors.keys():
                 sensor_id = node_id + "_" + sensor
                 sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
-                discovery["sensor/" + sensor_id] = {
+                discovery["sensor/" + object_id + "/" + sensor_id] = {
                     "device": device,
                     "origin": origin,
-                    "name": (node_name + " " + sensor).replace("_", " ").title(),
+                    "name": sensor_id.replace("_", " ").title(),
                     "unique_id": sensor_uuid,
-                    "object_id": sensor_id,
+                    "default_entity_id": "sensor." + sensor_id,
                     "device_class": sensors[sensor]["class"],
                     "unit_of_measurement": sensors[sensor]["unit"],
                     "state_topic": state_topic,
@@ -1054,7 +1052,7 @@ def taptap_discovery_legacy():
                     str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
                     and sensors[sensor]["avail_key"]
                 ):
-                    discovery["sensor/" + sensor_id].update(
+                    discovery["sensor/" + object_id + "/" + sensor_id].update(
                         {
                             "availability_mode": "all",
                             "availability": [
@@ -1071,7 +1069,7 @@ def taptap_discovery_legacy():
                         }
                     )
                 else:
-                    discovery["sensor/" + sensor_id].update(
+                    discovery["sensor/" + object_id + "/" + sensor_id].update(
                         {"availability_topic": lwt_topic}
                     )
 
