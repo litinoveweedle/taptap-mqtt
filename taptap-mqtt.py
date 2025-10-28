@@ -440,9 +440,14 @@ def taptap_tele(mode):
         # Calculate averages and set device state
         if online_nodes > 0:
             if online_nodes < len(nodes_names):
-                logging("info", f"Only {online_nodes} nodes reported online")
+                logging(
+                    "info", f"Only {online_nodes} nodes reported during last online"
+                )
             else:
-                logging("debug", f"{online_nodes} nodes reported online")
+                logging(
+                    "debug",
+                    f"All {online_nodes} nodes reported online during last cycle",
+                )
             state["state"] = "online"
             for sensor in stats_sensors:
                 state["stats"][sensor]["avg"] /= online_nodes
@@ -451,7 +456,7 @@ def taptap_tele(mode):
                         state["stats"][sensor]["avg"], sensors[sensor]["round"]
                     )
         else:
-            logging("debug", f"No nodes reported online")
+            logging("debug", f"No nodes reported online during last cycle")
             for sensor in stats_sensors:
                 for op in stats_ops:
                     state["stats"][sensor][op] = 0
