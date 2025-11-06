@@ -37,7 +37,7 @@ TIMEOUT = 180
 # How often MQTT state topic shall be updated.
 UPDATE = 10
 # Persistent data file for taptap to store detected modules serial numbers to be used for fast topology data init during restarts.
-PERSISTENT_FILE = ./taptap.json
+STATE_FILE = ./taptap.json
 
 [HA]
 # MQTT topic to post Home Assistant discovery message, set empty to disable MQTT discovery.
@@ -53,4 +53,4 @@ ENTITY_AVAILABILITY = true
 # Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
 MAX_ERROR = 15
 # Application state file to be used by external watchdog, application update it regularly with the UNIX timestamp if running.
-STATE_FILE = /run/taptap/taptap.state
+RUN_FILE = /run/taptap/taptap.run
