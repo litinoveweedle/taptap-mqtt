@@ -310,10 +310,10 @@ def taptap_tele(mode):
             node_name = nodes[node_id]["node_name"]
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
-                if (
-                    not node_name in state["nodes"]
-                    or state["nodes"][node_name]["state"] == "offline"
-                ):
+                if not node_name in state["nodes"]:
+                    state["nodes"][node_name] = {}
+                    logging("info", f"Node {node_name} is online")
+                elif state["nodes"][node_name]["state"] == "offline":
                     logging("info", f"Node {node_name} came online")
                 else:
                     logging("debug", f"Node {node_name} is online")
