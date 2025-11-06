@@ -308,12 +308,30 @@ def taptap_tele(mode):
 
         for node_id in nodes.keys():
             node_name = nodes[node_id]["node_name"]
+            if not node_name in state["nodes"]:
+                # Node state unknown - init default values
+                logging("debug", f"Node {node_name} init as offline")
+                state["nodes"][node_name] = {
+                    "node_id": node_id,
+                    "node_name": nodes[node_id]["node_name"],
+                    "node_serial": nodes[node_id]["node_serial"],
+                    "gateway_id": 0,
+                    "state": "offline",
+                    "init_state": "offline",
+                    "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
+                    "tmstp": 0,
+                    "voltage_in": 0,
+                    "voltage_out": 0,
+                    "current": 0,
+                    "duty_cycle": 0,
+                    "temperature": 0,
+                    "rssi": 0,
+                    "power": 0,
+                }
+
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
-                if not node_name in state["nodes"]:
-                    state["nodes"][node_name] = {}
-                    logging("info", f"Node {node_name} is online")
-                elif state["nodes"][node_name]["state"] == "offline":
+                if state["nodes"][node_name]["state"] == "offline":
                     logging("info", f"Node {node_name} came online")
                 else:
                     logging("debug", f"Node {node_name} is online")
@@ -377,28 +395,6 @@ def taptap_tele(mode):
                             state["stats"][sensor][op] += state["nodes"][node_name][
                                 sensor
                             ]
-
-            elif not node_name in state["nodes"]:
-                # Node state unknown - init default values
-                logging("debug", f"Node {node_name} init as offline")
-                state["nodes"][node_name] = {
-                    "node_id": node_id,
-                    "node_name": nodes[node_id]["node_name"],
-                    "node_serial": nodes[node_id]["node_serial"],
-                    "gateway_id": 0,
-                    "state": "offline",
-                    "init_state": "offline",
-                    "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
-                    "tmstp": 0,
-                    "voltage_in": 0,
-                    "voltage_out": 0,
-                    "current": 0,
-                    "duty_cycle": 0,
-                    "temperature": 0,
-                    "rssi": 0,
-                    "power": 0,
-                }
-
             elif (
                 state["nodes"][node_name]["tmstp"] + int(config["TAPTAP"]["TIMEOUT"])
                 < now
@@ -724,7 +720,7 @@ def taptap_infrastructure_event(data):
                     "debug",
                     f"Discovered valid serial: {node_serial} and node name: {node_name} for node id: {node_id}",
                 )
-                for key in nodes.keys():
+                for key in list(nodes):
                     # Update mapping table
                     if key != node_id:
                         if (
