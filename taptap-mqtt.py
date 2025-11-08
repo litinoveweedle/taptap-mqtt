@@ -329,22 +329,23 @@ def taptap_tele():
                     "power": 0,
                 }
 
-                if node_name not in nodes_names_ids:
-                    # not yet received any message from this node
-                    logging("debug", f"Node {node_name} not yet seen on the bus")
-                    continue
+            if node_name not in nodes_names_ids:
+                # not yet received any message from this node
+                logging("debug", f"Node {node_name} not yet seen on the bus")
+                continue
 
-                node_id = nodes_names_ids[node_name]
-                if node_id not in nodes.keys():
-                    logging("error", f"Node {node_name} id {node_id} not in nodes!")
-                    continue
-                elif node_name != nodes[node_id]["node_name"]:
-                    logging("error", f"Node {node_name} id {node_id} name mismatch!")
-                    continue
-                # update node id, name and serial
-                state["nodes"][node_name]["node_id"] = node_id
-                state["nodes"][node_name]["node_name"] = nodes[node_id]["node_name"]
-                state["nodes"][node_name]["node_serial"] = nodes[node_id]["node_serial"]
+            node_id = nodes_names_ids[node_name]
+            if node_id not in nodes.keys():
+                logging("error", f"Node {node_name} id {node_id} not in nodes!")
+                continue
+            elif node_name != nodes[node_id]["node_name"]:
+                logging("error", f"Node {node_name} id {node_id} name mismatch!")
+                continue
+
+            # update node id, name and serial
+            state["nodes"][node_name]["node_id"] = node_id
+            state["nodes"][node_name]["node_name"] = nodes[node_id]["node_name"]
+            state["nodes"][node_name]["node_serial"] = nodes[node_id]["node_serial"]
 
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
