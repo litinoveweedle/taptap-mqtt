@@ -187,7 +187,7 @@ if config["TAPTAP"]["LOG_LEVEL"] and config["TAPTAP"]["LOG_LEVEL"] in log_levels
     log_level = log_levels[config["TAPTAP"]["LOG_LEVEL"]]
 
 if not Path(config["TAPTAP"]["BINARY"]).is_file():
-    logging("error", "TATTAP BINARY doesn't exists!")
+    logging("error", "TAPTAP BINARY doesn't exists!")
     exit(1)
 
 if (
@@ -290,7 +290,7 @@ def taptap_tele():
             logging("debug", data)
             if taptap_power_event(data, now):
                 # Power Report processed
-                cache[data["node_name"]][data["tmstp"]] = data
+                cache[nodes[data["node_id"]]["node_name"]][data["tmstp"]] = data
                 logging("debug", "Successfully processed power event")
                 logging("debug", data)
         else:
@@ -307,12 +307,10 @@ def taptap_tele():
                 state["stats"][sensor][op] = None
 
         for node_name in nodes_names:
-            node_id = 0
-
             if node_name not in state["nodes"]:
                 # Node was not yet seen on the bus, need to init its state topic
                 state["nodes"][node_name] = {
-                    "node_id": node_id,
+                    "node_id": 0,
                     "node_name": node_name,
                     "node_serial": "",
                     "gateway_id": 0,
@@ -342,11 +340,6 @@ def taptap_tele():
                 logging("error", f"Node {node_name} id {node_id} name mismatch!")
                 continue
 
-            # update node id, name and serial
-            state["nodes"][node_name]["node_id"] = node_id
-            state["nodes"][node_name]["node_name"] = nodes[node_id]["node_name"]
-            state["nodes"][node_name]["node_serial"] = nodes[node_id]["node_serial"]
-
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
                 if state["nodes"][node_name]["state"] == "offline":
@@ -364,7 +357,9 @@ def taptap_tele():
 
                 # Update state data
                 for sensor in sensors.keys():
-                    if sensors[sensor]["unit"]:
+                    if sensor in ["node_name", "node_serial"]:
+                        state["nodes"][node_name][sensor] = nodes[node_id][sensor]
+                    elif sensors[sensor]["unit"]:
                         # Calculate average for data smoothing
                         sum = 0
                         for tmstp in cache[node_name].keys():
@@ -422,6 +417,9 @@ def taptap_tele():
                 logging("info", f"Node {node_name} went offline")
                 state["nodes"][node_name].update(
                     {
+                        "node_id": node_id,
+                        "node_name": nodes[node_id]["node_name"],
+                        "node_serial": nodes[node_id]["node_serial"],
                         "state": "offline",
                         "voltage_in": 0,
                         "voltage_out": 0,
@@ -430,6 +428,15 @@ def taptap_tele():
                         "temperature": 0,
                         "rssi": 0,
                         "power": 0,
+                    }
+                )
+            else:
+                # update node id, name and serial
+                state["nodes"][node_name].update(
+                    {
+                        "node_id": node_id,
+                        "node_name": nodes[node_id]["node_name"],
+                        "node_serial": nodes[node_id]["node_serial"],
                     }
                 )
 
@@ -1231,7 +1238,7 @@ def mqtt_init():
             reconnect += 1
             timeout = 0
 
-    # Subscribe for homeassistant birth messages
+    # Subscribe for Home Assistant birth messages
     if config["HA"]["BIRTH_TOPIC"]:
         client.subscribe(config["HA"]["BIRTH_TOPIC"])
 
