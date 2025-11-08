@@ -242,7 +242,7 @@ attributes_topic = (
 logging("debug", f"Configured nodes: {nodes}")
 
 
-def taptap_tele(mode):
+def taptap_tele():
     logging("debug", "Into taptap_tele")
     global last_tele
     global taptap
@@ -298,7 +298,7 @@ def taptap_tele(mode):
             logging("debug", data)
             continue
 
-    if mode or last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
+    if last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
         online_nodes = 0
         # Init statistic values
         for sensor in stats_sensors:
@@ -306,15 +306,15 @@ def taptap_tele(mode):
             for op in stats_ops:
                 state["stats"][sensor][op] = None
 
-        for node_id in nodes.keys():
-            node_name = nodes[node_id]["node_name"]
-            if not node_name in state["nodes"]:
-                # Node state unknown - init default values
-                logging("debug", f"Node {node_name} init as offline")
+        for node_name in nodes_names:
+            node_id = 0
+
+            if node_name not in state["nodes"]:
+                # Node was not yet seen on the bus, need to init its state topic
                 state["nodes"][node_name] = {
                     "node_id": node_id,
-                    "node_name": nodes[node_id]["node_name"],
-                    "node_serial": nodes[node_id]["node_serial"],
+                    "node_name": node_name,
+                    "node_serial": "",
                     "gateway_id": 0,
                     "state": "offline",
                     "init_state": "offline",
@@ -328,6 +328,23 @@ def taptap_tele(mode):
                     "rssi": 0,
                     "power": 0,
                 }
+
+                if node_name not in nodes_names_ids:
+                    # not yet received any message from this node
+                    logging("debug", f"Node {node_name} not yet seen on the bus")
+                    continue
+
+                node_id = nodes_names_ids[node_name]
+                if node_id not in nodes.keys():
+                    logging("error", f"Node {node_name} id {node_id} not in nodes!")
+                    continue
+                elif node_name != nodes[node_id]["node_name"]:
+                    logging("error", f"Node {node_name} id {node_id} name mismatch!")
+                    continue
+                # update node id, name and serial
+                state["nodes"][node_name]["node_id"] = node_id
+                state["nodes"][node_name]["node_name"] = nodes[node_id]["node_name"]
+                state["nodes"][node_name]["node_serial"] = nodes[node_id]["node_serial"]
 
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
@@ -404,9 +421,6 @@ def taptap_tele(mode):
                 logging("info", f"Node {node_name} went offline")
                 state["nodes"][node_name].update(
                     {
-                        "node_id": node_id,
-                        "node_name": nodes[node_id]["node_name"],
-                        "node_serial": nodes[node_id]["node_serial"],
                         "state": "offline",
                         "voltage_in": 0,
                         "voltage_out": 0,
@@ -415,21 +429,6 @@ def taptap_tele(mode):
                         "temperature": 0,
                         "rssi": 0,
                         "power": 0,
-                    }
-                )
-            elif (
-                state["nodes"][node_name]["node_id"] != node_id
-                or state["nodes"][node_name]["node_name"] != nodes[node_id]["node_name"]
-                or state["nodes"][node_name]["node_serial"]
-                != nodes[node_id]["node_serial"]
-            ):
-                # Node node was enumerated - update values
-                logging("info", f"Node {node_name} went offline")
-                state["nodes"][node_name].update(
-                    {
-                        "node_id": node_id,
-                        "node_name": nodes[node_id]["node_name"],
-                        "node_serial": nodes[node_id]["node_serial"],
                     }
                 )
 
@@ -587,7 +586,7 @@ def taptap_power_event(data, now):
                 return False
             else:
                 data["power"] = data["voltage_out"] * data["current"]
-                if not taptap_enumerate_node(data):
+                if not taptap_enumerate_node(data["node_id"]):
                     # get node name and serial and enumerate if necessary
                     logging(
                         "warning",
@@ -777,37 +776,33 @@ def taptap_infrastructure_event(data):
     return enumerated
 
 
-def taptap_enumerate_node(data):
+def taptap_enumerate_node(node_id):
     logging("debug", "Into taptap_enumerate_node")
     global nodes
     global nodes_names_ids
 
-    if data["node_id"] in nodes.keys():
+    if node_id in nodes.keys():
         # node was already discovered
         logging(
             "debug",
-            f"Node id: {data['node_id']} already enumerated to node name: '{nodes[data['node_id']]['node_name']}' and serial: '{nodes[data['node_id']]['node_serial']}'",
+            f"Node id: {node_id} already enumerated to node name: '{nodes[node_id]['node_name']}' and serial: '{nodes[node_id]['node_serial']}'",
         )
-        data["node_name"] = nodes[data["node_id"]]["node_name"]
-        data["node_serial"] = nodes[data["node_id"]]["node_serial"]
         return True
     else:
         # need to find unused node name and assign it to node_id temporarily
         for node_name in nodes_names:
             if node_name not in nodes_names_ids.keys():
-                nodes[data["node_id"]] = {"node_serial": "", "node_name": node_name}
-                nodes_names_ids[node_name] = data["node_id"]
-                data["node_name"] = node_name
-                data["node_serial"] = ""
+                nodes[node_id] = {"node_serial": "", "node_name": node_name}
+                nodes_names_ids[node_name] = node_id
                 logging(
                     "info",
-                    f"Temporary enumerated node id: '{data['node_id']}' to node name: {node_name}",
+                    f"Temporary enumerated node id: {node_id} to node name: {node_name}",
                 )
                 return True
 
     logging(
         "warning",
-        f"Unable to enumerate node id: '{data['node_id']}' - no more node names available!",
+        f"Unable to enumerate node id: {node_id} - no more node names available!",
     )
     logging("debug", nodes_names_ids)
     return False
@@ -1331,7 +1326,7 @@ while True:
         taptap_discovery()
         # Run update loop
         while True:
-            taptap_tele(0)
+            taptap_tele()
             run_file(1)
             restart = 0
             time.sleep(1)
