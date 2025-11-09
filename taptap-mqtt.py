@@ -488,21 +488,21 @@ def taptap_tele():
                 )
 
         # Set enumeration state
-        if enum_nodes > 0:
-            if enum_nodes < len(nodes_names):
-                logging(
-                    "info",
-                    f"Only {enum_nodes} nodes were identified during last cycle",
-                )
-            else:
-                logging(
-                    "debug",
-                    f"All {enum_nodes} nodes were identified during last cycle",
-                )
-            state["enum_state"] = "online"
-        else:
-            logging("debug", f"No nodes were identified during last cycle")
+        if enum_nodes == 0:
+            logging("debug", f"No nodes were find identified during last cycle")
             state["enum_state"] = "offline"
+        elif enum_nodes < len(nodes_names):
+            logging(
+                "info",
+                f"Only {enum_nodes} nodes were find identified during last cycle",
+            )
+            state["enum_state"] = "offline"
+        else:
+            logging(
+                "debug",
+                f"All {enum_nodes} nodes were find identified during last cycle",
+            )
+            state["enum_state"] = "online"
 
         # Calculate averages and set device state
         if online_nodes > 0:
