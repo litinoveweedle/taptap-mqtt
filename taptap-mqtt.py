@@ -60,55 +60,64 @@ sensors = {
         "class": "voltage",
         "unit": "V",
         "round": 2,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "voltage_out": {
         "class": "voltage",
         "unit": "V",
         "round": 2,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "current": {
         "class": "current",
         "unit": "A",
         "round": 2,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "power": {
         "class": "power",
         "unit": "W",
         "round": 0,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "temperature": {
         "class": "temperature",
         "unit": "°C",
         "round": 1,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "duty_cycle": {
         "class": "power_factor",
         "unit": "%",
         "round": 0,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "rssi": {
         "class": "signal_strength",
         "unit": "dB",
         "round": 0,
-        "avail_key": "state",
+        "avail_online_key": "state",
+        "avail_serial_key": "enum_state",
     },
     "timestamp": {
         "class": "timestamp",
         "unit": None,
         "round": None,
-        "avail_key": "init_state",
+        "avail_online_key": "init_state",
+        "avail_serial_key": "",
     },
     "node_serial": {
         "class": None,
         "unit": None,
         "round": None,
-        "avail_key": "",
+        "avail_online_key": "",
+        "avail_serial_key": "",
     },
 }
 
@@ -138,7 +147,10 @@ config_validation = {
         "DISCOVERY_PREFIX": r"^(\w+)(\/\w+)*",
         "DISCOVERY_LEGACY": r"^(true|false)$",
         "BIRTH_TOPIC": r"^(\w+)(\/\w+)*",
-        "ENTITY_AVAILABILITY": r"^(true|false)$",
+        "NODE_AVAILABILITY_ONLINE": r"^(true|false)$",
+        "NODE_AVAILABILITY_SERIAL": r"^(true|false)$",
+        "STATS_AVAILABILITY_ONLINE": r"^(true|false)$",
+        "STATS_AVAILABILITY_SERIAL": r"^(true|false)$",
     },
     "RUNTIME": {
         "MAX_ERROR": r"^\d+$",
@@ -300,6 +312,7 @@ def taptap_tele():
 
     if last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
         online_nodes = 0
+        enum_nodes = 0
         # Init statistic values
         for sensor in stats_sensors:
             state["stats"][sensor] = {}
@@ -339,6 +352,40 @@ def taptap_tele():
             elif node_name != nodes[node_id]["node_name"]:
                 logging("error", f"Node {node_name} id {node_id} name mismatch!")
                 continue
+
+            if nodes[node_id]["node_serial"]:
+                if state["nodes"][node_name]["node_serial"]:
+                    if (
+                        state["nodes"][node_name]["node_serial"]
+                        != nodes[node_id]["node_serial"]
+                    ):
+                        logging(
+                            "info",
+                            f"Node {node_name} serial updated from {state['nodes'][node_name]['node_serial']} to {nodes[node_id]['node_serial']}",
+                        )
+                    else:
+                        logging(
+                            "debug",
+                            f"Node {node_name} is already identified by serial {nodes[node_id]['node_serial']}",
+                        )
+                else:
+                    logging(
+                        "info",
+                        f"Node {node_name} was identified by serial {nodes[node_id]['node_serial']}",
+                    )
+                state["nodes"][node_name]["enum_state"] = "online"
+                enum_nodes += 1
+            else:
+                if state["nodes"][node_name]["node_serial"]:
+                    logging(
+                        "info",
+                        f"Node {node_name} serial {state['nodes'][node_name]['node_serial']} mapping was removed!",
+                    )
+                else:
+                    logging(
+                        "debug", f"Node {node_name} is not yet identified by serial"
+                    )
+                state["nodes"][node_name]["enum_state"] = "offline"
 
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
@@ -440,11 +487,28 @@ def taptap_tele():
                     }
                 )
 
+        # Set enumeration state
+        if enum_nodes > 0:
+            if enum_nodes < len(nodes_names):
+                logging(
+                    "info",
+                    f"Only {enum_nodes} nodes were identified during last cycle",
+                )
+            else:
+                logging(
+                    "debug",
+                    f"All {enum_nodes} nodes were identified during last cycle",
+                )
+            state["enum_state"] = "online"
+        else:
+            logging("debug", f"No nodes were identified during last cycle")
+            state["enum_state"] = "offline"
+
         # Calculate averages and set device state
         if online_nodes > 0:
             if online_nodes < len(nodes_names):
                 logging(
-                    "info", f"Only {online_nodes} nodes reported during last online"
+                    "info", f"Only {online_nodes} nodes reported online during last cycle"
                 )
             else:
                 logging(
@@ -869,28 +933,33 @@ def taptap_discovery_device():
                     + "."
                     + op
                     + " }}",
+                    "availability_mode": "all",
+                    "availability": [{"topic": lwt_topic}],
                 }
+
                 if (
-                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["avail_key"]
+                    str_to_bool(config["HA"]["STATS_AVAILABILITY_ONLINE"])
+                    and sensors[sensor]["avail_online_key"]
                 ):
-                    discovery["components"][sensor_id].update(
+                    discovery["components"][sensor_id]["availability"].append(
                         {
-                            "availability_mode": "all",
-                            "availability": [
-                                {"topic": lwt_topic},
-                                {
-                                    "topic": state_topic,
-                                    "value_template": "{{ value_json."
-                                    + sensors[sensor]["avail_key"]
-                                    + " }}",
-                                },
-                            ],
-                        }
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_online_key"]
+                            + " }}",
+                        },
                     )
-                else:
-                    discovery["components"][sensor_id].update(
-                        {"availability_topic": lwt_topic}
+                if (
+                    str_to_bool(config["HA"]["STATS_AVAILABILITY_SERIAL"])
+                    and sensors[sensor]["avail_serial_key"]
+                ):
+                    discovery["components"][sensor_id]["availability"].append(
+                        {
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_serial_key"]
+                            + " }}",
+                        },
                     )
 
         # Node sensors components
@@ -913,31 +982,33 @@ def taptap_discovery_device():
                     + sensor
                     + " }}",
                     "json_attributes_topic": "{{}}",
+                    "availability_mode": "all",
+                    "availability": [{"topic": lwt_topic}],
                 }
 
                 if (
-                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["avail_key"]
+                    str_to_bool(config["HA"]["NODE_AVAILABILITY_ONLINE"])
+                    and sensors[sensor]["avail_online_key"]
                 ):
-                    discovery["components"][sensor_id].update(
+                    discovery["components"][sensor_id]["availability"].append(
                         {
-                            "availability_mode": "all",
-                            "availability": [
-                                {"topic": lwt_topic},
-                                {
-                                    "topic": state_topic,
-                                    "value_template": "{{ value_json.nodes."
-                                    + node_name
-                                    + "."
-                                    + sensors[sensor]["avail_key"]
-                                    + " }}",
-                                },
-                            ],
-                        }
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_online_key"]
+                            + " }}",
+                        },
                     )
-                else:
-                    discovery["components"][sensor_id].update(
-                        {"availability_topic": lwt_topic}
+                if (
+                    str_to_bool(config["HA"]["NODE_AVAILABILITY_SERIAL"])
+                    and sensors[sensor]["avail_serial_key"]
+                ):
+                    discovery["components"][sensor_id]["availability"].append(
+                        {
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_serial_key"]
+                            + " }}",
+                        },
                     )
 
         discovery["state_topic"] = state_topic
@@ -1004,29 +1075,34 @@ def taptap_discovery_legacy():
                     + "."
                     + op
                     + " }}",
+                    "availability_mode": "all",
+                    "availability": [{"topic": lwt_topic}],
                     "qos": config["MQTT"]["QOS"],
                 }
+
                 if (
-                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["avail_key"]
+                    str_to_bool(config["HA"]["STATS_AVAILABILITY_ONLINE"])
+                    and sensors[sensor]["avail_online_key"]
                 ):
-                    discovery["sensor/" + object_id + "/" + sensor_id].update(
+                    discovery["components"][sensor_id]["availability"].append(
                         {
-                            "availability_mode": "all",
-                            "availability": [
-                                {"topic": lwt_topic},
-                                {
-                                    "topic": state_topic,
-                                    "value_template": "{{ value_json."
-                                    + sensors[sensor]["avail_key"]
-                                    + " }}",
-                                },
-                            ],
-                        }
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_online_key"]
+                            + " }}",
+                        },
                     )
-                else:
-                    discovery["sensor/" + object_id + "/" + sensor_id].update(
-                        {"availability_topic": lwt_topic}
+                if (
+                    str_to_bool(config["HA"]["STATS_AVAILABILITY_SERIAL"])
+                    and sensors[sensor]["avail_serial_key"]
+                ):
+                    discovery["components"][sensor_id]["availability"].append(
+                        {
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_serial_key"]
+                            + " }}",
+                        },
                     )
 
         # Node sensors components
@@ -1049,32 +1125,34 @@ def taptap_discovery_legacy():
                     + "."
                     + sensor
                     + " }}",
+                    "availability_mode": "all",
+                    "availability": [{"topic": lwt_topic}],
                     "qos": config["MQTT"]["QOS"],
                 }
 
                 if (
-                    str_to_bool(config["HA"]["ENTITY_AVAILABILITY"])
-                    and sensors[sensor]["avail_key"]
+                    str_to_bool(config["HA"]["NODE_AVAILABILITY_ONLINE"])
+                    and sensors[sensor]["avail_online_key"]
                 ):
-                    discovery["sensor/" + object_id + "/" + sensor_id].update(
+                    discovery["components"][sensor_id]["availability"].append(
                         {
-                            "availability_mode": "all",
-                            "availability": [
-                                {"topic": lwt_topic},
-                                {
-                                    "topic": state_topic,
-                                    "value_template": "{{ value_json.nodes."
-                                    + node_name
-                                    + "."
-                                    + sensors[sensor]["avail_key"]
-                                    + " }}",
-                                },
-                            ],
-                        }
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_online_key"]
+                            + " }}",
+                        },
                     )
-                else:
-                    discovery["sensor/" + object_id + "/" + sensor_id].update(
-                        {"availability_topic": lwt_topic}
+                if (
+                    str_to_bool(config["HA"]["NODE_AVAILABILITY_SERIAL"])
+                    and sensors[sensor]["avail_serial_key"]
+                ):
+                    discovery["components"][sensor_id]["availability"].append(
+                        {
+                            "topic": state_topic,
+                            "value_template": "{{ value_json."
+                            + sensors[sensor]["avail_serial_key"]
+                            + " }}",
+                        },
                     )
 
     if len(discovery):
