@@ -508,7 +508,8 @@ def taptap_tele():
         if online_nodes > 0:
             if online_nodes < len(nodes_names):
                 logging(
-                    "info", f"Only {online_nodes} nodes reported online during last cycle"
+                    "info",
+                    f"Only {online_nodes} nodes reported online during last cycle",
                 )
             else:
                 logging(
