@@ -142,7 +142,7 @@ config_validation = {
     },
     "RUNTIME": {
         "MAX_ERROR": r"^\d+$",
-        "STATE_FILE?": r"^\/\w+(\/[\.\w]+)*$",
+        "RUN_FILE?": r"^(\.{0,2}\/)?(\w+\/)*([\.\w]+)$",
     },
 }
 
@@ -187,7 +187,7 @@ if config["TAPTAP"]["LOG_LEVEL"] and config["TAPTAP"]["LOG_LEVEL"] in log_levels
     log_level = log_levels[config["TAPTAP"]["LOG_LEVEL"]]
 
 if not Path(config["TAPTAP"]["BINARY"]).is_file():
-    logging("error", "TATTAP BINARY doesn't exists!")
+    logging("error", "TAPTAP BINARY doesn't exists!")
     exit(1)
 
 if (
@@ -242,7 +242,7 @@ attributes_topic = (
 logging("debug", f"Configured nodes: {nodes}")
 
 
-def taptap_tele(mode):
+def taptap_tele():
     logging("debug", "Into taptap_tele")
     global last_tele
     global taptap
@@ -298,7 +298,7 @@ def taptap_tele(mode):
             logging("debug", data)
             continue
 
-    if mode or last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
+    if last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
         online_nodes = 0
         # Init statistic values
         for sensor in stats_sensors:
@@ -310,10 +310,7 @@ def taptap_tele(mode):
             node_name = nodes[node_id]["node_name"]
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
-                if (
-                    not node_name in state["nodes"]
-                    or state["nodes"][node_name]["state"] == "offline"
-                ):
+                if state["nodes"][node_name]["state"] == "offline":
                     logging("info", f"Node {node_name} came online")
                 else:
                     logging("debug", f"Node {node_name} is online")
@@ -328,7 +325,9 @@ def taptap_tele(mode):
 
                 # Update state data
                 for sensor in sensors.keys():
-                    if sensors[sensor]["unit"]:
+                    if sensor in ["node_name", "node_serial"]:
+                        state["nodes"][node_name][sensor] = nodes[node_id][sensor]
+                    elif sensors[sensor]["unit"]:
                         # Calculate average for data smoothing
                         sum = 0
                         for tmstp in cache[node_name].keys():
@@ -1240,7 +1239,7 @@ def mqtt_init():
             reconnect += 1
             timeout = 0
 
-    # Subscribe for homeassistant birth messages
+    # Subscribe for Home Assistant birth messages
     if config["HA"]["BIRTH_TOPIC"]:
         client.subscribe(config["HA"]["BIRTH_TOPIC"])
 
@@ -1290,27 +1289,27 @@ def mqtt_on_message(client, userdata, msg):
 
 
 # Touch state file on successful run
-def state_file(mode):
-    logging("debug", "Into state_file")
+def run_file(mode):
+    logging("debug", "Into run_file")
     if mode:
-        if config["RUNTIME"]["STATE_FILE"]:
-            path = os.path.split(config["RUNTIME"]["STATE_FILE"])
+        if config["RUNTIME"]["RUN_FILE"]:
+            path = os.path.split(config["RUNTIME"]["RUN_FILE"])
             try:
                 # Create stat file directory if not exists
                 if not os.path.isdir(path[0]):
                     os.makedirs(path[0], exist_ok=True)
                 # Write stats file
-                with open(config["RUNTIME"]["STATE_FILE"], "a"):
-                    os.utime(config["RUNTIME"]["STATE_FILE"], None)
+                with open(config["RUNTIME"]["RUN_FILE"], "a"):
+                    os.utime(config["RUNTIME"]["RUN_FILE"], None)
                 logging("debug", "stats file updated")
             except IOError as error:
                 logging(
                     "error",
-                    f"Unable to write to file: {config['RUNTIME']['STATE_FILE']} error: {error}",
+                    f"Unable to write to file: {config['RUNTIME']['RUN_FILE']} error: {error}",
                 )
                 exit(1)
-    elif os.path.isfile(config["RUNTIME"]["STATE_FILE"]):
-        os.remove(config["RUNTIME"]["STATE_FILE"])
+    elif os.path.isfile(config["RUNTIME"]["RUN_FILE"]):
+        os.remove(config["RUNTIME"]["RUN_FILE"])
 
 
 def str_to_bool(string):
@@ -1336,8 +1335,8 @@ while True:
         taptap_discovery()
         # Run update loop
         while True:
-            taptap_tele(0)
-            state_file(1)
+            taptap_tele()
+            run_file(1)
             restart = 0
             time.sleep(1)
     except BaseException as error:
@@ -1357,7 +1356,7 @@ while True:
             logging("error", "Gracefully terminating application")
             mqtt_cleanup()
             taptap_cleanup()
-            state_file(0)
+            run_file(0)
             # Graceful shutdown
             sys.exit(0)
         else:
