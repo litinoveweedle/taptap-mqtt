@@ -141,7 +141,7 @@ config_validation = {
         "TOPIC_NAME": r"^(\w+)$",
         "TIMEOUT": r"^\d+$",
         "UPDATE": r"^\d+$",
-        "STATE_FILE": r"^(\.{0,2}\/)?(\w+\/)*([\.\w]+)$",
+        "PERSISTENT_FILE": r"^(\.{0,2}\/)*(\w+\/)*taptap.json$",
     },
     "HA": {
         "DISCOVERY_PREFIX": r"^(\w+)(\/\w+)*",
@@ -302,7 +302,7 @@ def taptap_tele():
             logging("debug", data)
             if taptap_power_event(data, now):
                 # Power Report processed
-                cache[nodes[data["node_id"]]["node_name"]][data["tmstp"]] = data
+                cache[data["node_name"]][data["tmstp"]] = data
                 logging("debug", "Successfully processed power event")
                 logging("debug", data)
         else:
@@ -455,6 +455,28 @@ def taptap_tele():
                             state["stats"][sensor][op] += state["nodes"][node_name][
                                 sensor
                             ]
+
+            elif not node_name in state["nodes"]:
+                # Node state unknown - init default values
+                logging("debug", f"Node {node_name} init as offline")
+                state["nodes"][node_name] = {
+                    "node_id": node_id,
+                    "node_name": nodes[node_id]["node_name"],
+                    "node_serial": nodes[node_id]["node_serial"],
+                    "gateway_id": 0,
+                    "state": "offline",
+                    "init_state": "offline",
+                    "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
+                    "tmstp": 0,
+                    "voltage_in": 0,
+                    "voltage_out": 0,
+                    "current": 0,
+                    "duty_cycle": 0,
+                    "temperature": 0,
+                    "rssi": 0,
+                    "power": 0,
+                }
+
             elif (
                 state["nodes"][node_name]["tmstp"] + int(config["TAPTAP"]["TIMEOUT"])
                 < now
@@ -477,8 +499,14 @@ def taptap_tele():
                         "power": 0,
                     }
                 )
-            else:
-                # update node id, name and serial
+            elif (
+                state["nodes"][node_name]["node_id"] != node_id
+                or state["nodes"][node_name]["node_name"] != nodes[node_id]["node_name"]
+                or state["nodes"][node_name]["node_serial"]
+                != nodes[node_id]["node_serial"]
+            ):
+                # Node node was enumerated - update values
+                logging("info", f"Node {node_name} went offline")
                 state["nodes"][node_name].update(
                     {
                         "node_id": node_id,
@@ -658,7 +686,7 @@ def taptap_power_event(data, now):
                 return False
             else:
                 data["power"] = data["voltage_out"] * data["current"]
-                if not taptap_enumerate_node(data["node_id"]):
+                if not taptap_enumerate_node(data):
                     # get node name and serial and enumerate if necessary
                     logging(
                         "warning",
@@ -791,7 +819,7 @@ def taptap_infrastructure_event(data):
                     "debug",
                     f"Discovered valid serial: {node_serial} and node name: {node_name} for node id: {node_id}",
                 )
-                for key in list(nodes):
+                for key in nodes.keys():
                     # Update mapping table
                     if key != node_id:
                         if (
@@ -848,33 +876,37 @@ def taptap_infrastructure_event(data):
     return enumerated
 
 
-def taptap_enumerate_node(node_id):
+def taptap_enumerate_node(data):
     logging("debug", "Into taptap_enumerate_node")
     global nodes
     global nodes_names_ids
 
-    if node_id in nodes.keys():
+    if data["node_id"] in nodes.keys():
         # node was already discovered
         logging(
             "debug",
-            f"Node id: {node_id} already enumerated to node name: '{nodes[node_id]['node_name']}' and serial: '{nodes[node_id]['node_serial']}'",
+            f"Node id: {data['node_id']} already enumerated to node name: '{nodes[data['node_id']]['node_name']}' and serial: '{nodes[data['node_id']]['node_serial']}'",
         )
+        data["node_name"] = nodes[data["node_id"]]["node_name"]
+        data["node_serial"] = nodes[data["node_id"]]["node_serial"]
         return True
     else:
         # need to find unused node name and assign it to node_id temporarily
         for node_name in nodes_names:
             if node_name not in nodes_names_ids.keys():
-                nodes[node_id] = {"node_serial": "", "node_name": node_name}
-                nodes_names_ids[node_name] = node_id
+                nodes[data["node_id"]] = {"node_serial": "", "node_name": node_name}
+                nodes_names_ids[node_name] = data["node_id"]
+                data["node_name"] = node_name
+                data["node_serial"] = ""
                 logging(
                     "info",
-                    f"Temporary enumerated node id: {node_id} to node name: {node_name}",
+                    f"Temporary enumerated node id: '{data['node_id']}' to node name: {node_name}",
                 )
                 return True
 
     logging(
         "warning",
-        f"Unable to enumerate node id: {node_id} - no more node names available!",
+        f"Unable to enumerate node id: '{data['node_id']}' - no more node names available!",
     )
     logging("debug", nodes_names_ids)
     return False
@@ -1195,8 +1227,8 @@ def taptap_init():
             + config["TAPTAP"]["BINARY"]
             + " observe --serial "
             + config["TAPTAP"]["SERIAL"]
-            + " --state-file "
-            + config["TAPTAP"]["STATE_FILE"],
+            + " --persistent-file "
+            + config["TAPTAP"]["PERSISTENT_FILE"],
         )
         taptap = subprocess.Popen(
             [
@@ -1204,8 +1236,8 @@ def taptap_init():
                 "observe",
                 "--serial",
                 config["TAPTAP"]["SERIAL"],
-                "--state-file",
-                config["TAPTAP"]["STATE_FILE"],
+                "--persistent-file",
+                config["TAPTAP"]["PERSISTENT_FILE"],
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1220,8 +1252,8 @@ def taptap_init():
             + config["TAPTAP"]["ADDRESS"]
             + " --port "
             + config["TAPTAP"]["PORT"]
-            + " --state-file "
-            + config["TAPTAP"]["STATE_FILE"],
+            + " --persistent-file "
+            + config["TAPTAP"]["PERSISTENT_FILE"],
         )
         taptap = subprocess.Popen(
             [
@@ -1231,8 +1263,8 @@ def taptap_init():
                 config["TAPTAP"]["ADDRESS"],
                 "--port",
                 config["TAPTAP"]["PORT"],
-                "--state-file",
-                config["TAPTAP"]["STATE_FILE"],
+                "--persistent-file",
+                config["TAPTAP"]["PERSISTENT_FILE"],
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
