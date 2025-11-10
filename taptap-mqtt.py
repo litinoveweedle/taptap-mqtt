@@ -994,7 +994,9 @@ def taptap_discovery_device():
                     discovery["components"][sensor_id]["availability"].append(
                         {
                             "topic": state_topic,
-                            "value_template": "{{ value_json."
+                            "value_template": "{{ value_json.nodes."
+                            + node_name
+                            + "."
                             + sensors[sensor]["avail_online_key"]
                             + " }}",
                         },
@@ -1006,7 +1008,9 @@ def taptap_discovery_device():
                     discovery["components"][sensor_id]["availability"].append(
                         {
                             "topic": state_topic,
-                            "value_template": "{{ value_json."
+                            "value_template": "{{ value_json.nodes."
+                            + node_name
+                            + "."
                             + sensors[sensor]["avail_serial_key"]
                             + " }}",
                         },
@@ -1138,7 +1142,9 @@ def taptap_discovery_legacy():
                     discovery["components"][sensor_id]["availability"].append(
                         {
                             "topic": state_topic,
-                            "value_template": "{{ value_json."
+                            "value_template": "{{ value_json.nodes."
+                            + node_name
+                            + "."
                             + sensors[sensor]["avail_online_key"]
                             + " }}",
                         },
@@ -1150,7 +1156,9 @@ def taptap_discovery_legacy():
                     discovery["components"][sensor_id]["availability"].append(
                         {
                             "topic": state_topic,
-                            "value_template": "{{ value_json."
+                            "value_template": "{{ value_json.nodes."
+                            + node_name
+                            + "."
                             + sensors[sensor]["avail_serial_key"]
                             + " }}",
                         },
