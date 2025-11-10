@@ -46,8 +46,14 @@ DISCOVERY_PREFIX = homeassistant
 DISCOVERY_LEGACY = false
 # MQTT topic to monitor home Assistant to come online to re-post discovery message, set empty to disable this feature.
 BIRTH_TOPIC = homeassistant/status
-# Do not render home Assistant entities 'UNAVAILABLE' if no message received within TIMEOUT, set to 'true' or 'false'.
-ENTITY_AVAILABILITY = true
+# To render Home Assistant node entities 'UNAVAILABLE' if no message received within TIMEOUT, set to 'true' or 'false'.
+NODE_AVAILABILITY_ONLINE = true
+# To render Home Assistant node entities 'UNAVAILABLE' if node serial is not yet discovered, set to 'true' or 'false'.
+NODE_AVAILABILITY_SERIAL = false
+# To render Home Assistant statistical entities 'UNAVAILABLE' if there is not any node online, set to 'true' or 'false'.
+STATS_AVAILABILITY_ONLINE = false
+# To render Home Assistant statistical entities 'UNAVAILABLE' if not all node serials are not yet discovered, set to 'true' or 'false'. Default is 'false'.
+STATS_AVAILABILITY_SERIAL = false
 
 [RUNTIME]
 # Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
