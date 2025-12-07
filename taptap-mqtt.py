@@ -319,6 +319,8 @@ strings = {}
 gateways = {}
 # Bool if all nodes have serials configured
 nodes_configured = True
+# Int index of unknown/discovered nodes
+nodes_unknown = 0
 
 # Init cache struct
 cache = dict.fromkeys(nodes.keys(), {})
@@ -354,7 +356,12 @@ def taptap_conf() -> None:
 
     if not entries:
         logging("error", f"Modules are not configured!")
-        exit(1)
+        logging("error", f"Program will continue running and try to discover Tigo modules as an experimental feature.")
+        logging("error", f"Note, that it could take up to 24hrs for Tigo Gateway to publish modules information needed for discovery.")
+        logging("error", f"Until modules are discovered NO modules sensors will be configured in the Home Assistant!")
+        logging("error", f"It is strongly recomended to manually configure all Tigo modules strings, names and serials!")
+        nodes_configured = False
+        return
 
     for entry in entries:
         parsed = re.search(
@@ -1093,6 +1100,8 @@ def taptap_infrastructure_event(data: dict) -> bool:
                             "error",
                             f"You shall define all node names and corresponding node serials in the configuration!",
                         )
+                        enumerated = True
+                        taptap_add_node(node_id, gateway_id, node_serial)
 
     if not enumerated:
         logging(
@@ -1190,8 +1199,35 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
         "warning",
         f"Unable to enumerate node id: {node_id} - no more node names available!",
     )
-    logging("debug", nodes)
-    return False
+    taptap_add_node(node_id, gateway_id, None)
+    return True
+
+
+def taptap_add_node(node_id: str, gateway_id: str, node_serial) -> None:
+    logging("debug", "Into taptap_add_node")
+    global nodes
+    global nodes_ids
+    global nodes_unknown
+    global nodes_configured
+    gateway_address = None
+
+    if gateway_id in gateways.keys():
+        gateway_address = gateways[gateway_id]
+
+    nodes_unknown += 1
+    node_name = "UNKNOWN" + str(nodes_unknown).zfill(2)
+    nodes_configured = False
+    nodes[node_name] = {
+        "node_id": node_id,
+        "node_serial": node_serial,
+        "string_name": None,
+        "gateway_id": gateway_id,
+        "gateway_address": gateway_address,
+    }
+    nodes_ids[node_id] = node_name
+    print_nodes_configuration("error")
+    # re-run HA discovery for newly added module
+    taptap_discovery(1)
 
 
 def taptap_discovery(mode: int) -> None:
