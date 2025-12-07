@@ -364,6 +364,7 @@ def taptap_conf() -> None:
             node_string = parsed.group(1)
             node_name = parsed.group(2)
             node_serial = parsed.group(3)
+            node_name_short = node_name
 
             if node_string is not None:
                 node_name = node_string + node_name
@@ -388,6 +389,7 @@ def taptap_conf() -> None:
                 "node_id": None,
                 "string_name": node_string,
                 "node_name": node_name,
+                "node_name_short": node_name_short,
                 "node_serial": node_serial,
                 "gateway_id": None,
                 "gateway_address": None,
@@ -397,12 +399,17 @@ def taptap_conf() -> None:
             exit(1)
 
     if len(strings.keys()) == 0:
-        logging("debug", f"Strings are not configured, strings support is disabled")
+        logging("debug", f"Strings are not configured, strings statistics are inactive")
     elif len(strings.keys()) == 1:
-        logging("warning", f"Only single string is configured, strings support is disabled.")
+        logging(
+            "warning", f"Only single string is configured, strings statistics are inactive."
+        )
         strings = {}
     else:
-        logging("debug", f"{len(strings.keys())} strings are is configured, strings support enabled.")
+        logging(
+            "debug",
+            f"{len(strings.keys())} strings are is configured, strings statistics are enabled.",
+        )
 
 
 def taptap_tele() -> None:
@@ -716,7 +723,7 @@ def taptap_tele() -> None:
 
 def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
     logging("debug", "Into reset_stat_sensor")
-    
+
     if sensor not in state_data:
         state_data[sensor] = {}
 
@@ -1065,11 +1072,11 @@ def taptap_infrastructure_event(data: dict) -> bool:
                             # create permanent mapping for unknown serial
                             logging(
                                 "warning",
-                                f"Discovered unconfigured node serial {node_serial} on node id: {node_id} assigning it the randomly selected available node name: {node_name}",
+                                f"Discovered unconfigured node serial {node_serial} on node id: {node_id} assigning it to the first available node name: {node_name}",
                             )
                             logging(
                                 "warning",
-                                f"Consider to assign discovered node serial: {node_serial} to the correct node name in the configuration!",
+                                f"Consider to permanently assign discovered node serial: {node_serial} to the correct node name in the configuration!",
                             )
                             nodes_configured = False
                             enumerated = True
@@ -1081,8 +1088,8 @@ def taptap_infrastructure_event(data: dict) -> bool:
                                     "gateway_address": gateway_address,
                                 }
                             )
-                            node_id[node_id] = node_name
-                            print_nodes_configuration("warning")
+                            nodes_ids[node_id] = node_name
+                            taptap_nodes_conf("warning")
                             break
                     else:
                         logging(
@@ -1107,8 +1114,8 @@ def taptap_infrastructure_event(data: dict) -> bool:
     return enumerated
 
 
-def print_nodes_configuration(level: str) -> None:
-    logging("debug", "Into print_nodes_configuration")
+def taptap_nodes_conf(level: str) -> None:
+    logging("debug", "Into taptap_nodes_conf")
     if nodes_configured:
         # all nodes are properly configured
         return
@@ -1117,10 +1124,11 @@ def print_nodes_configuration(level: str) -> None:
     for node_name in sorted(nodes.keys()):
         if nodes[node_name]["node_serial"] is not None:
             if nodes[node_name]["string_name"] is not None:
+                node_name
                 nodes_conf.append(
                     nodes[node_name]["string_name"]
                     + ":"
-                    + node_name
+                    + nodes[node_name]["node_name_short"]
                     + ":"
                     + nodes[node_name]["node_serial"]
                 )
@@ -1134,7 +1142,7 @@ def print_nodes_configuration(level: str) -> None:
             nodes_conf.append(":" + node_name + ":")
     logging(
         level,
-        f"To simplify nodes configuration you will find all discovered nodes printed bellow in the proper format, Adjust string and modules names to your needs",
+        f"To simplify nodes configuration you will find all currently discovered nodes printed bellow in the proper format. Adjust string and modules names to your needs.",
     )
     logging(
         level,
@@ -1455,7 +1463,13 @@ def taptap_discovery_legacy(mode: int) -> None:
 
 
 def taptap_discovery_legacy_sensor(
-    name: str, sensor: str, mode: str, state_json_path: str, object_id: str, origin: str, device: str
+    name: str,
+    sensor: str,
+    mode: str,
+    state_json_path: str,
+    object_id: str,
+    origin: str,
+    device: str,
 ) -> None:
     logging("debug", "Into taptap_discovery_device_sensor")
     global discovery
@@ -1782,7 +1796,7 @@ while True:
             taptap_cleanup()
             run_file(0)
             # Print any unknown nodes
-            print_nodes_configuration("error")
+            taptap_nodes_conf("error")
             # Graceful shutdown
             sys.exit(0)
         else:
