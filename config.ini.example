@@ -35,7 +35,7 @@ TOPIC_NAME = tigo1
 # Time after which Tigo module is declared offline if no message is received.
 TIMEOUT = 180
 # How often MQTT state topic shall be updated.
-UPDATE = 10
+UPDATE = 15
 # Persistent data file for taptap to store detected modules serial numbers to be used for fast topology data init during restarts.
 STATE_FILE = ./taptap.json
 
@@ -47,13 +47,23 @@ DISCOVERY_LEGACY = false
 # MQTT topic to monitor home Assistant to come online to re-post discovery message, set empty to disable this feature.
 BIRTH_TOPIC = homeassistant/status
 # To render Home Assistant node entities 'UNAVAILABLE' if no message received within TIMEOUT, set to 'true' or 'false'.
-NODE_AVAILABILITY_ONLINE = true
+NODES_AVAILABILITY_ONLINE = false
 # To render Home Assistant node entities 'UNAVAILABLE' if node serial is not yet discovered, set to 'true' or 'false'.
-NODE_AVAILABILITY_SERIAL = false
-# To render Home Assistant statistical entities 'UNAVAILABLE' if there is not any node online, set to 'true' or 'false'.
+NODES_AVAILABILITY_IDENTIFIED = false
+# To render Home Assistant string statistical entities 'UNAVAILABLE' if there is not any node online, set to 'true' or 'false'.
+STRINGS_AVAILABILITY_ONLINE = false
+# To render Home Assistant string statistical entities 'UNAVAILABLE' if not all node serials are not yet discovered, set to 'true' or 'false'. Default is 'false'.
+STRINGS_AVAILABILITY_IDENTIFIED = false
+# To render Home Assistant total statistical entities 'UNAVAILABLE' if there is not any node online, set to 'true' or 'false'.
 STATS_AVAILABILITY_ONLINE = false
-# To render Home Assistant statistical entities 'UNAVAILABLE' if not all node serials are not yet discovered, set to 'true' or 'false'. Default is 'false'.
-STATS_AVAILABILITY_SERIAL = false
+# To render Home Assistant total statistical entities 'UNAVAILABLE' if not all node serials are not yet discovered, set to 'true' or 'false'. Default is 'false'.
+STATS_AVAILABILITY_IDENTIFIED = false
+# Comma separated list of the node sensors which shall have Home Assistant statistic recorder enabled
+NODES_SENSORS_STATISTICS = energy
+# Comma separated list of the string statistic sensors which shall have Home Assistant statistic recorder enabled
+STRINGS_SENSORS_STATISTICS = energy_daily
+# Comma separated list of the total statistic sensors which shall have Home Assistant statistic recorder enabled
+STATS_SENSORS_STATISTICS = energy_daily
 
 [RUNTIME]
 # Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
