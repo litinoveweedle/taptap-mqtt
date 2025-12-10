@@ -67,11 +67,11 @@ STATS_AVAILABILITY_ONLINE = false
 # To render Home Assistant total statistical entities 'UNAVAILABLE' if not all node serials are not yet discovered, set to 'true' or 'false'. Default is 'false'.
 STATS_AVAILABILITY_IDENTIFIED = false
 # Comma separated list of the node sensors which shall have Home Assistant statistic recorder enabled
-NODES_SENSORS_STATISTICS = energy
+NODES_SENSORS_RECORDER = energy
 # Comma separated list of the string statistic sensors which shall have Home Assistant statistic recorder enabled
-STRINGS_SENSORS_STATISTICS = energy_daily
+STRINGS_SENSORS_RECORDER = energy_daily
 # Comma separated list of the total statistic sensors which shall have Home Assistant statistic recorder enabled
-STATS_SENSORS_STATISTICS = energy_daily
+STATS_SENSORS_RECORDER = energy_daily
 
 [RUNTIME]
 # Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
