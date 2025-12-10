@@ -402,7 +402,8 @@ def taptap_conf() -> None:
         logging("debug", f"Strings are not configured, strings statistics are inactive")
     elif len(strings.keys()) == 1:
         logging(
-            "warning", f"Only single string is configured, strings statistics are inactive."
+            "warning",
+            f"Only single string is configured, strings statistics are inactive.",
         )
         strings = {}
     else:
@@ -552,6 +553,7 @@ def taptap_tele() -> None:
                     )
                     if type == "node":
                         value = nodes[node_name][sensors[sensor]["type_node"]["node"]]
+                        state["nodes"][node_name][sensor] = value
                     elif type in ["daily", "weekly", "monthly", "yearly"]:
                         prev_tmstp = state["nodes"][node_name]["tmstp"]
                         value = 0
@@ -561,6 +563,9 @@ def taptap_tele() -> None:
                                     sensors[sensor]["type_node"][type]
                                 ] * (tmstp - prev_tmstp)
                             prev_tmstp = tmstp
+                        if "scale" in sensors[sensor]:
+                            value *= sensors[sensor]["scale"]
+                        state["nodes"][node_name][sensor] += value
                     elif type == "value":
                         if sensors[sensor]["unit"]:
                             # Calculate average for data smoothing
@@ -569,18 +574,17 @@ def taptap_tele() -> None:
                                 value += cache[node_name][tmstp][
                                     sensors[sensor]["type_node"][type]
                                 ]
-                                value /= len(cache[node_name])
+                            value /= len(cache[node_name])
+                            if "scale" in sensors[sensor]:
+                                value *= sensors[sensor]["scale"]
                         else:
                             # Take latest value
                             value = cache[node_name][last][
                                 sensors[sensor]["type_node"][type]
                             ]
+                        state["nodes"][node_name][sensor] = value
                     else:
                         continue
-
-                    if "scale" in sensors[sensor]:
-                        value *= sensors[sensor]["scale"]
-                    state["nodes"][node_name][sensor] = value
 
                     # Update stat sensor
                     if strings and nodes[node_name]["string_name"] is not None:
