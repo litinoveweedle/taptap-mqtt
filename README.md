@@ -16,40 +16,104 @@ If you are looking for seamlessly integrated solution for HomeAssistant please c
 
 ## Provided data/entities:
 
-- for each Tigo optimizer (node)
+- Node data for each Tigo optimizer (node)
   - sensor: 
     - voltage_in ( "class": "voltage", "unit": "V" )
     - voltage_out ( "class": "voltage", "unit": "V" )
-    - current ( "class": "current", "unit": "A" )
-    - voltage_in ( "class": "voltage", "unit": "V" )
+    - current_in ( "class": "current", "unit": "A" )
+    - current_out ( "class": "current", "unit": "A" )
     - power ( "class": "power", "unit": "W" )
     - temperature ( "class": "temperature", "unit": "°C" )
     - duty_cycle ( "class": "power_factor", "unit": "%" )
     - rssi ( "class": "signal_strength", "unit": "dB"  )
+    - energy_daily ( "class": "energy", "unit": "kWh"  )
     - timestamp ("class": "timestamp", "unit": None )    # time node was last seen on the bus
     - node_serial ("class": None, "unit": None )        # Tigo optimizer serial number
-  
-- statistic data for all optimizers (nodes) connected to the Tigo CCA:
-  - sensor:
-    - voltage_in_max
-    - voltage_in_min
-    - voltage_in_avg
-    - voltage_out_min
-    - voltage_out_max
-    - voltage_out_avg
-    - current_min
-    - current_max
-    - current_avg
-    - duty_cycle_min
-    - duty_cycle_max
-    - duty_cycle_avg
-    - temperature_min
-    - temperature_max
-    - temperature_avg
-    - rssi_min
-    - rssi_max
-    - rssi_avg
+    - gateway_address ("class": None, "unit": None )    # Tigo gateway address
+
+
+- Single string / no string defined:
+  - Total statistic for all Tigo optimizers:
+    - sensor:
+      - voltage_in_max
+      - voltage_in_min
+      - voltage_in_avg
+      - voltage_in_sum
+      - voltage_out_min
+      - voltage_out_max
+      - voltage_out_avg
+      - voltage_out_sum
+      - current_in_min
+      - current_in_max
+      - current_in_avg
+      - current_out_min
+      - current_out_max
+      - current_out_avg
+      - power_max
+      - power_min
+      - power_avg
+      - power_sum
+      - temperature_min
+      - temperature_max
+      - temperature_avg
+      - duty_cycle_min
+      - duty_cycle_max
+      - duty_cycle_avg
+      - rssi_min
+      - rssi_max
+      - rssi_avg
+      - energy_daily
+      - nodes_total
+      - nodes_online
+      - nodes_identified
+
+- Multiple strings defined
+  - String statistics for string connected Tigo Optimizers:
+    - sensor:
+      - voltage_in_max
+      - voltage_in_min
+      - voltage_in_avg
+      - voltage_in_sum
+      - voltage_out_min
+      - voltage_out_max
+      - voltage_out_avg
+      - voltage_out_sum
+      - current_in_min
+      - current_in_max
+      - current_in_avg
+      - current_out_min
+      - current_out_max
+      - current_out_avg
+      - power_max
+      - power_min
+      - power_avg
+      - power_sum
+      - temperature_min
+      - temperature_max
+      - temperature_avg
+      - duty_cycle_min
+      - duty_cycle_max
+      - duty_cycle_avg
+      - energy_daily
+      - nodes_total
+      - nodes_online
+      - nodes_identified
+
+  - Total statistic for all Tigo optimizers:
+    - sensor:
+      - power_sum
+      - rssi_min
+      - rssi_max
+      - rssi_avg
+      - energy_daily
+      - nodes_total
+      - nodes_online
+      - nodes_identified
+
+
 
 
 ## Reporting issues:
-Before reporting any issue please check that you have running taptap binary which can intercept messages in the `observe` mode! There is hight chance, that you problem would be related to the configuration of the converter (especially Ethernet ones).
+Before reporting any issue please check that you can get running [taptap binary](https://github.com/litinoveweedle/taptap/) which can intercept messages in the `observe` mode! There is high chance, that you problem could be related to the configuration of the converter (especially Ethernet ones).
+
+If you are note able to get outputs in the taptap `observe` mode, but you are getting messages in the lower layer modes like `peek-bytes`, `peek-frames` and/or `peek-activity` there is a high chance, that there is incompatibility of the taptap with the current Tigo Gateway protocol. The know versions of the Tigo GW firmware compatible with the taptap are 3.9.0-ct, 4.0.1-ct, 4.0.3-ct. Update your firmware using Tigo application if you are on the older version. If you are on the newer firmware version please [report the issue](https://github.com/willglynn/taptap/issues) together with taptap binary messages captures.

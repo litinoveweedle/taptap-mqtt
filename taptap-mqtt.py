@@ -55,7 +55,7 @@ sensors = {
         "avail_ident_key": "state_identified",
         "type_node": {"value": "voltage_in"},
         "type_string": ["min", "max", "avg", "sum"],
-        "type_stat": ["min", "max", "avg"],
+        "type_stat": [],
     },
     "voltage_out": {
         "state_class": "measurement",
@@ -109,8 +109,8 @@ sensors = {
         "avail_online_key": "state_online",
         "avail_ident_key": "state_identified",
         "type_node": {"value": "temperature"},
-        "type_string": [],
-        "type_stat": ["min", "max", "avg"],
+        "type_string": ["min", "max", "avg"],
+        "type_stat": [],
     },
     "duty_cycle": {
         "state_class": "measurement",
