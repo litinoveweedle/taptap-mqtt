@@ -30,7 +30,7 @@ class MqttError(Exception):
     pass
 
 
-def logging(level, message):
+def logging(level: str, message) -> None:
     if level in log_levels and log_levels[level] >= log_level:
         print("[" + str(datetime.now()) + "] " + level.upper() + ":", message)
 
@@ -44,80 +44,173 @@ log_levels = {
     "debug": 0,
 }
 
-state = {"time": 0, "uptime": 0, "state": "offline", "nodes": {}, "stats": {}}
-stats_ops = ["min", "max", "avg"]
-stats_sensors = [
-    "voltage_in",
-    "voltage_out",
-    "current",
-    "power",
-    "duty_cycle",
-    "temperature",
-    "rssi",
-]
+state = {"time": 0, "uptime": 0, "nodes": {}, "stats": {}}
 sensors = {
     "voltage_in": {
-        "class": "voltage",
+        "state_class": "measurement",
+        "device_class": "voltage",
         "unit": "V",
-        "round": 2,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 2,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "voltage_in"},
+        "type_string": ["min", "max", "avg", "sum"],
+        "type_stat": [],
     },
     "voltage_out": {
-        "class": "voltage",
+        "state_class": "measurement",
+        "device_class": "voltage",
         "unit": "V",
-        "round": 2,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 2,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "voltage_out"},
+        "type_string": ["min", "max", "avg", "sum"],
+        "type_stat": [],
     },
-    "current": {
-        "class": "current",
+    "current_in": {
+        "state_class": "measurement",
+        "device_class": "current",
         "unit": "A",
-        "round": 2,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 2,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "current_in"},
+        "type_string": ["min", "max", "avg"],
+        "type_stat": [],
+    },
+    "current_out": {
+        "state_class": "measurement",
+        "device_class": "current",
+        "unit": "A",
+        "precision": 2,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "current_out"},
+        "type_string": ["min", "max", "avg"],
+        "type_stat": [],
     },
     "power": {
-        "class": "power",
+        "state_class": "measurement",
+        "device_class": "power",
         "unit": "W",
-        "round": 0,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 0,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "power"},
+        "type_string": ["min", "max", "avg", "sum"],
+        "type_stat ": ["sum"],
     },
     "temperature": {
-        "class": "temperature",
+        "state_class": "measurement",
+        "device_class": "temperature",
         "unit": "°C",
-        "round": 1,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 1,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "temperature"},
+        "type_string": ["min", "max", "avg"],
+        "type_stat": [],
     },
     "duty_cycle": {
-        "class": "power_factor",
+        "state_class": "measurement",
+        "device_class": "power_factor",
         "unit": "%",
-        "round": 0,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 2,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "duty_cycle"},
+        "type_string": ["min", "max", "avg"],
+        "type_stat": [],
     },
     "rssi": {
-        "class": "signal_strength",
+        "state_class": "measurement",
+        "device_class": "signal_strength",
         "unit": "dB",
-        "round": 0,
-        "avail_online_key": "state",
-        "avail_serial_key": "enum_state",
+        "precision": 0,
+        "avail_online_key": "state_online",
+        "avail_ident_key": "state_identified",
+        "type_node": {"value": "rssi"},
+        "type_string": [],
+        "type_stats": ["min", "max", "avg"],
+    },
+    "energy": {
+        "state_class": "total_increasing",
+        "device_class": "energy",
+        "unit": "kWh",
+        "precision": 2,
+        "scale": 0.000000278,
+        "avail_online_key": "",
+        "avail_ident_key": "state_identified",
+        "type_node": {"daily": "power"},
+        "type_string": ["daily"],
+        "type_stat": ["daily"],
     },
     "timestamp": {
-        "class": "timestamp",
+        "state_class": "measurement",
+        "device_class": "timestamp",
         "unit": None,
-        "round": None,
-        "avail_online_key": "init_state",
-        "avail_serial_key": "",
+        "precision": None,
+        "avail_online_key": "state_init",
+        "avail_ident_key": "",
+        "type_node": {"value": "timestamp"},
+        "type_string": [],
+        "type_stat": [],
     },
     "node_serial": {
-        "class": None,
+        "state_class": "measurement",
+        "device_class": None,
         "unit": None,
-        "round": None,
+        "precision": None,
         "avail_online_key": "",
-        "avail_serial_key": "",
+        "avail_ident_key": "",
+        "type_node": {"node": "node_serial"},
+        "type_string": [],
+        "type_stat": [],
+    },
+    "gateway_address": {
+        "state_class": "measurement",
+        "device_class": None,
+        "unit": None,
+        "precision": None,
+        "avail_online_key": "",
+        "avail_ident_key": "",
+        "type_node": {"node": "gateway_address"},
+        "type_string": [],
+        "type_stat": [],
+    },
+    "nodes_total": {
+        "state_class": "measurement",
+        "device_class": None,
+        "unit": None,
+        "precision": None,
+        "avail_online_key": "",
+        "avail_ident_key": "",
+        "type_node": {},
+        "type_string": ["count"],
+        "type_stat": ["count"],
+    },
+    "nodes_online": {
+        "state_class": "measurement",
+        "device_class": None,
+        "unit": None,
+        "precision": None,
+        "avail_online_key": "",
+        "avail_ident_key": "",
+        "type_node": {},
+        "type_string": ["count"],
+        "type_stat": ["count"],
+    },
+    "nodes_identified": {
+        "state_class": "measurement",
+        "device_class": None,
+        "unit": None,
+        "precision": None,
+        "avail_online_key": "",
+        "avail_ident_key": "",
+        "type_node": {},
+        "type_string": ["count"],
+        "type_stat": ["count"],
     },
 }
 
@@ -136,7 +229,7 @@ config_validation = {
         "SERIAL?": r"^\/dev\/tty\w+$",
         "ADDRESS?": r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$",
         "PORT": r"^\d+$",
-        "MODULES_SERIALS": r"^\s*\w+\s*\:\s*[0-9A-Z]\-[0-9A-Z]{7}\s*(\,\s*\w+\s*\:\s*[0-9A-Z]\-[0-9A-Z]{7}\s*)*$",
+        "MODULES": r"^(\s*(\w+)?\s*\:\s*(\w+)\s*\:\s*([0-9A-Z]\-[0-9A-Z]{7})?\s*)?(\s*\,\s*(\w+)?\s*\:\s*(\w+)\s*\:\s*([0-9A-Z]\-[0-9A-Z]{7})?\s*)*$",
         "TOPIC_PREFIX": r"^(\w+)(\/\w+)*",
         "TOPIC_NAME": r"^(\w+)$",
         "TIMEOUT": r"^\d+$",
@@ -147,10 +240,15 @@ config_validation = {
         "DISCOVERY_PREFIX": r"^(\w+)(\/\w+)*",
         "DISCOVERY_LEGACY": r"^(true|false)$",
         "BIRTH_TOPIC": r"^(\w+)(\/\w+)*",
-        "NODE_AVAILABILITY_ONLINE": r"^(true|false)$",
-        "NODE_AVAILABILITY_SERIAL": r"^(true|false)$",
+        "NODES_AVAILABILITY_ONLINE": r"^(true|false)$",
+        "NODES_AVAILABILITY_IDENTIFIED": r"^(true|false)$",
+        "STRINGS_AVAILABILITY_ONLINE": r"^(true|false)$",
+        "STRINGS_AVAILABILITY_IDENTIFIED": r"^(true|false)$",
         "STATS_AVAILABILITY_ONLINE": r"^(true|false)$",
-        "STATS_AVAILABILITY_SERIAL": r"^(true|false)$",
+        "STATS_AVAILABILITY_IDENTIFIED": r"^(true|false)$",
+        "NODES_SENSORS_RECORDER": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
+        "STRINGS_SENSORS_RECORDER": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
+        "STATS_SENSORS_RECORDER": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
     },
     "RUNTIME": {
         "MAX_ERROR": r"^\d+$",
@@ -210,32 +308,23 @@ if (
     logging("error", "Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
     exit(1)
 
-
-nodes_names = []
-nodes_serials = []
-for entry in list(map(str.strip, config["TAPTAP"]["MODULEs_SERIALS"].split(","))):
-    (node_name, node_serial) = list(map(str.strip, entry.split(":")))
-    nodes_names.append(node_name)
-    nodes_serials.append(node_serial)
-if not len(nodes_names) or not len(nodes_serials):
-    logging("error", "MODULES_SERIALS need to have at least one module defined")
-    exit(1)
-
-
-# Init nodes dictionary
-# node serials -> node names mapping
-nodes_serials_names = dict(zip(nodes_serials, nodes_names))
-# node names -> node ids mapping
-nodes_names_ids = {}
-# node ids -> node names + serials mapping
+# Init nodes dictionaries
+# Dict of node names -> node string, serial, getaway, node id
 nodes = {}
+# Dict of nodes ids -> node names
+nodes_ids = {}
+# Dict string_name -> nodes cout
+strings = {}
+# Dict gateway id -> getway address
 gateways = {}
+# Bool if all nodes have serials configured
+nodes_configured = True
 
 # Init cache struct
-cache = dict.fromkeys(nodes_names, {})
+cache = dict.fromkeys(nodes.keys(), {})
 
 # Init discovery struct
-discovery = None
+discovery = {}
 
 # Init MQTT topics
 lwt_topic = (
@@ -251,10 +340,80 @@ attributes_topic = (
     + "/attributes"
 )
 
-logging("debug", f"Configured nodes: {nodes}")
+logging("debug", f"Configured nodes: {nodes.keys()}")
 
 
-def taptap_tele():
+def taptap_conf() -> None:
+    logging("debug", "Into taptap_conf")
+    global nodes
+    global strings
+    global nodes_configured
+    nodes_serials = set()
+
+    entries = list(map(str.strip, config["TAPTAP"]["MODULES"].split(",")))
+
+    if not entries:
+        logging("error", f"Modules are not configured!")
+        exit(1)
+
+    for entry in entries:
+        parsed = re.search(
+            r"^\s*(\w+)?\s*\:\s*(\w+)\s*\:\s*([0-9A-Z]\-[0-9A-Z]{7})?\s*$", entry
+        )
+        if parsed:
+            node_string = parsed.group(1)
+            node_name = parsed.group(2)
+            node_serial = parsed.group(3)
+            node_name_short = node_name
+
+            if node_string is not None:
+                node_name = node_string + node_name
+                if node_string not in strings:
+                    strings[node_string] = 0
+                else:
+                    strings[node_string] += 1
+
+            if node_name in nodes.keys():
+                logging("error", f"Duplicite node name: {node_name}!")
+                exit(1)
+
+            if node_serial is not None:
+                if node_serial in nodes_serials:
+                    logging("error", f"Duplicite node serial: {node_serial}!")
+                    exit(1)
+                nodes_serials.add(node_serial)
+            else:
+                nodes_configured = False
+
+            nodes[node_name] = {
+                "node_id": None,
+                "string_name": node_string,
+                "node_name": node_name,
+                "node_name_short": node_name_short,
+                "node_serial": node_serial,
+                "gateway_id": None,
+                "gateway_address": None,
+            }
+        else:
+            logging("error", f"Invalid MODULES_SERIALS entry: {entry}")
+            exit(1)
+
+    if len(strings.keys()) == 0:
+        logging("debug", f"Strings are not configured, strings statistics are inactive")
+    elif len(strings.keys()) == 1:
+        logging(
+            "warning",
+            f"Only single string is configured, strings statistics are inactive.",
+        )
+        strings = {}
+    else:
+        logging(
+            "debug",
+            f"{len(strings.keys())} strings are is configured, strings statistics are enabled.",
+        )
+
+
+def taptap_tele() -> None:
     logging("debug", "Into taptap_tele")
     global last_tele
     global taptap
@@ -296,13 +455,13 @@ def taptap_tele():
                 logging("debug", "Successfully processed infrastructure event")
                 logging("debug", data)
                 logging("info", "Nodes were enumerated, flushing message cache")
-                cache = dict.fromkeys(nodes_names, {})
+                cache = dict.fromkeys(nodes.keys(), {})
         elif data["event_type"] == "power_report":
             logging("debug", "Received power_report event")
             logging("debug", data)
             if taptap_power_event(data, now):
                 # Power Report processed
-                cache[nodes[data["node_id"]]["node_name"]][data["tmstp"]] = data
+                cache[nodes_ids[str(data["node_id"])]][data["tmstp"]] = data
                 logging("debug", "Successfully processed power event")
                 logging("debug", data)
         else:
@@ -311,223 +470,232 @@ def taptap_tele():
             continue
 
     if last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
-        online_nodes = 0
-        enum_nodes = 0
-        # Init statistic values
-        for sensor in stats_sensors:
-            state["stats"][sensor] = {}
-            for op in stats_ops:
-                state["stats"][sensor][op] = None
+        dt = {
+            "last": datetime.fromtimestamp(last_tele, tz.tzlocal()),
+            "now": datetime.fromtimestamp(now, tz.tzlocal()),
+        }
 
-        for node_name in nodes_names:
+        # Reset statistic values
+        if "_all_" not in state["stats"]:
+            state["stats"]["_all_"] = {}
+        if strings:
+            for string_name in strings.keys():
+                if string_name not in state["stats"]:
+                    state["stats"][string_name] = {}
+                for sensor in sensors.keys():
+                    for type in sensors[sensor]["type_string"]:
+                        reset_stat_sensor(sensor, type, dt, state["stats"][string_name])
+                state["stats"][string_name]["nodes_total"]["count"] = strings[
+                    string_name
+                ]
+            for sensor in sensors.keys():
+                for type in sensors[sensor]["type_stats"]:
+                    reset_stat_sensor(sensor, type, dt, state["stats"]["_all_"])
+        else:
+            for sensor in sensors.keys():
+                for type in sensors[sensor]["type_string"]:
+                    reset_stat_sensor(sensor, type, dt, state["stats"]["_all_"])
+        state["stats"]["_all_"]["nodes_total"]["count"] = len(nodes.keys())
+
+        for node_name in nodes.keys():
             if node_name not in state["nodes"]:
                 # Node was not yet seen on the bus, need to init its state topic
                 state["nodes"][node_name] = {
-                    "node_id": 0,
-                    "node_name": node_name,
-                    "node_serial": "",
-                    "gateway_id": 0,
-                    "state": "offline",
-                    "init_state": "offline",
-                    "timestamp": datetime.fromtimestamp(0, tz.tzlocal()).isoformat(),
+                    "state_online": "offline",
+                    "state_init": "offline",
                     "tmstp": 0,
-                    "voltage_in": 0,
-                    "voltage_out": 0,
-                    "current": 0,
-                    "duty_cycle": 0,
-                    "temperature": 0,
-                    "rssi": 0,
-                    "power": 0,
                 }
+            for sensor in sensors.keys():
+                if sensors[sensor]["type_node"]:
+                    type = list(sensors[sensor]["type_node"])[0]
+                    reset_node_sensor(sensor, type, dt, state["nodes"][node_name])
 
-            if node_name not in nodes_names_ids:
+            if nodes[node_name]["node_id"] is None:
                 # not yet received any message from this node
                 logging("debug", f"Node {node_name} not yet seen on the bus")
                 continue
 
-            node_id = nodes_names_ids[node_name]
-            if node_id not in nodes.keys():
-                logging("error", f"Node {node_name} id {node_id} not in nodes!")
-                continue
-            elif node_name != nodes[node_id]["node_name"]:
-                logging("error", f"Node {node_name} id {node_id} name mismatch!")
-                continue
+            node_id = nodes[node_name]["node_id"]
 
-            if nodes[node_id]["node_serial"]:
-                if state["nodes"][node_name]["node_serial"]:
-                    if (
-                        state["nodes"][node_name]["node_serial"]
-                        != nodes[node_id]["node_serial"]
-                    ):
-                        logging(
-                            "info",
-                            f"Node {node_name} serial updated from {state['nodes'][node_name]['node_serial']} to {nodes[node_id]['node_serial']}",
-                        )
-                    else:
-                        logging(
-                            "debug",
-                            f"Node {node_name} is already identified by serial {nodes[node_id]['node_serial']}",
-                        )
-                else:
-                    logging(
-                        "info",
-                        f"Node {node_name} was identified by serial {nodes[node_id]['node_serial']}",
-                    )
-                state["nodes"][node_name]["enum_state"] = "online"
-                enum_nodes += 1
+            # Set identified state
+            if nodes[node_name]["node_serial"] is not None:
+                state["nodes"][node_name]["state_identified"] = "online"
+                state["stats"]["_all_"]["nodes_identified"]["count"] += 1
+                if strings and nodes[node_name]["string_name"] is not None:
+                    state["stats"][nodes[node_name]["string_name"]]["nodes_identified"][
+                        "count"
+                    ] += 1
             else:
-                if state["nodes"][node_name]["node_serial"]:
-                    logging(
-                        "info",
-                        f"Node {node_name} serial {state['nodes'][node_name]['node_serial']} mapping was removed!",
-                    )
-                else:
-                    logging(
-                        "debug", f"Node {node_name} is not yet identified by serial"
-                    )
-                state["nodes"][node_name]["enum_state"] = "offline"
+                state["nodes"][node_name]["state_identified"] = "offline"
 
             if node_name in cache.keys() and len(cache[node_name]):
                 # Node is online - populate state struct
-                if state["nodes"][node_name]["state"] == "offline":
+                if state["nodes"][node_name]["state_online"] == "offline":
                     logging("info", f"Node {node_name} came online")
                 else:
                     logging("debug", f"Node {node_name} is online")
-                online_nodes += 1
-                last = max(cache[node_name].keys())
-                state["nodes"][node_name]["state"] = "online"
-                state["nodes"][node_name]["init_state"] = "online"
-                state["nodes"][node_name]["tmstp"] = cache[node_name][last]["tmstp"]
-                state["nodes"][node_name]["timestamp"] = cache[node_name][last][
-                    "timestamp"
-                ]
 
-                # Update state data
+                state["stats"]["_all_"]["nodes_online"]["count"] += 1
+                if strings and nodes[node_name]["string_name"] is not None:
+                    state["stats"][nodes[node_name]["string_name"]]["nodes_online"][
+                        "count"
+                    ] += 1
+
+                last = max(cache[node_name].keys())
+
+                # Update sensors
                 for sensor in sensors.keys():
-                    if sensor in ["node_name", "node_serial"]:
-                        state["nodes"][node_name][sensor] = nodes[node_id][sensor]
-                    elif sensors[sensor]["unit"]:
-                        # Calculate average for data smoothing
-                        sum = 0
+                    value = None
+                    type = (
+                        list(sensors[sensor]["type_node"])[0]
+                        if sensors[sensor]["type_node"]
+                        else None
+                    )
+                    if type == "node":
+                        value = nodes[node_name][sensors[sensor]["type_node"]["node"]]
+                        state["nodes"][node_name][sensor] = value
+                    elif type in ["daily", "weekly", "monthly", "yearly"]:
+                        prev_tmstp = state["nodes"][node_name]["tmstp"]
+                        value = 0
                         for tmstp in cache[node_name].keys():
-                            sum += cache[node_name][tmstp][sensor]
-                        state["nodes"][node_name][sensor] = sum / len(cache[node_name])
+                            if prev_tmstp + int(config["TAPTAP"]["UPDATE"]) + 1 > tmstp:
+                                value += cache[node_name][tmstp][
+                                    sensors[sensor]["type_node"][type]
+                                ] * (tmstp - prev_tmstp)
+                            prev_tmstp = tmstp
+                        if "scale" in sensors[sensor]:
+                            value *= sensors[sensor]["scale"]
+                        state["nodes"][node_name][sensor] += value
+                    elif type == "value":
+                        if sensors[sensor]["unit"]:
+                            # Calculate average for data smoothing
+                            value = 0
+                            for tmstp in cache[node_name].keys():
+                                value += cache[node_name][tmstp][
+                                    sensors[sensor]["type_node"][type]
+                                ]
+                            value /= len(cache[node_name])
+                            if "scale" in sensors[sensor]:
+                                value *= sensors[sensor]["scale"]
+                        else:
+                            # Take latest value
+                            value = cache[node_name][last][
+                                sensors[sensor]["type_node"][type]
+                            ]
+                        state["nodes"][node_name][sensor] = value
                     else:
-                        # Take latest value
-                        state["nodes"][node_name][sensor] = cache[node_name][last][
-                            sensor
-                        ]
-                    if sensors[sensor]["round"] is not None:
-                        state["nodes"][node_name][sensor] = round(
-                            state["nodes"][node_name][sensor],
-                            sensors[sensor]["round"],
-                        )
+                        continue
+
+                    # Update stat sensor
+                    if strings and nodes[node_name]["string_name"] is not None:
+                        for type in sensors[sensor]["type_string"]:
+                            update_stat_sensor(
+                                sensor,
+                                type,
+                                state["stats"][nodes[node_name]["string_name"]],
+                                value,
+                            )
+
+                        for type in sensors[sensor]["type_stat"]:
+                            update_stat_sensor(
+                                sensor, type, state["stats"]["_all_"], value
+                            )
+                    else:
+                        for type in sensors[sensor]["type_string"]:
+                            update_stat_sensor(
+                                sensor, type, state["stats"]["_all_"], value
+                            )
+
+                state["nodes"][node_name].update(
+                    {
+                        "state_online": "online",
+                        "state_init": "online",
+                        "tmstp": cache[node_name][last]["tmstp"],
+                        "timestamp": cache[node_name][last]["timestamp"],
+                    }
+                )
 
                 # Reset cache
                 cache[node_name] = {}
 
-                # Calculate max, min and sum for average sensor
-                for sensor in stats_sensors:
-                    for op in stats_ops:
-                        if state["stats"][sensor][op] is None:
-                            state["stats"][sensor][op] = state["nodes"][node_name][
-                                sensor
-                            ]
-                        elif op == "max":
-                            if (
-                                online_nodes == 0
-                                or state["nodes"][node_name][sensor]
-                                > state["stats"][sensor][op]
-                            ):
-                                state["stats"][sensor][op] = state["nodes"][node_name][
-                                    sensor
-                                ]
-                        elif op == "min":
-                            if (
-                                online_nodes == 0
-                                or state["nodes"][node_name][sensor]
-                                < state["stats"][sensor][op]
-                            ):
-                                state["stats"][sensor][op] = state["nodes"][node_name][
-                                    sensor
-                                ]
-                        elif op == "avg":
-                            state["stats"][sensor][op] += state["nodes"][node_name][
-                                sensor
-                            ]
             elif (
                 state["nodes"][node_name]["tmstp"] + int(config["TAPTAP"]["TIMEOUT"])
                 < now
-                and state["nodes"][node_name]["state"] == "online"
+                and state["nodes"][node_name]["state_online"] == "online"
             ):
                 # Node went recently offline - reset values
                 logging("info", f"Node {node_name} went offline")
                 state["nodes"][node_name].update(
                     {
-                        "node_id": node_id,
-                        "node_name": nodes[node_id]["node_name"],
-                        "node_serial": nodes[node_id]["node_serial"],
-                        "state": "offline",
-                        "voltage_in": 0,
-                        "voltage_out": 0,
-                        "current": 0,
-                        "duty_cycle": 0,
-                        "temperature": 0,
-                        "rssi": 0,
-                        "power": 0,
+                        "node_name": nodes[node_name]["node_name"],
+                        "node_serial": nodes[node_name]["node_serial"],
+                        "gateway_address": nodes[node_name]["gateway_address"],
+                        "state_online": "offline",
                     }
                 )
+                for sensor in sensors.keys():
+                    type = (
+                        list(sensors[sensor]["type_node"])[0]
+                        if sensors[sensor]["type_node"]
+                        else None
+                    )
+                    if sensors[sensor]["avail_online_key"] == "state_init":
+                        continue
+                    if type == "value":
+                        state["nodes"][node_name][sensor] = None
             else:
                 # update node id, name and serial
                 state["nodes"][node_name].update(
                     {
-                        "node_id": node_id,
-                        "node_name": nodes[node_id]["node_name"],
-                        "node_serial": nodes[node_id]["node_serial"],
+                        "node_name": nodes[node_name]["node_name"],
+                        "node_serial": nodes[node_name]["node_serial"],
+                        "gateway_address": nodes[node_name]["gateway_address"],
                     }
                 )
 
-        # Set enumeration state
-        if enum_nodes == 0:
-            logging("debug", f"No nodes were find identified during last cycle")
-            state["enum_state"] = "offline"
-        elif enum_nodes < len(nodes_names):
-            logging(
-                "info",
-                f"Only {enum_nodes} nodes were find identified during last cycle",
-            )
-            state["enum_state"] = "offline"
-        else:
-            logging(
-                "debug",
-                f"All {enum_nodes} nodes were find identified during last cycle",
-            )
-            state["enum_state"] = "online"
-
-        # Calculate averages and set device state
-        if online_nodes > 0:
-            if online_nodes < len(nodes_names):
+        for string_name in ["_all_"] + list(strings.keys()):
+            # Set identified state
+            if state["stats"][string_name]["nodes_identified"]["count"] == 0:
+                logging("debug", f"No nodes were find identified during last cycle")
+                state["stats"][string_name]["state_identified"] = "offline"
+            elif (
+                state["stats"][string_name]["nodes_identified"]["count"]
+                < state["stats"][string_name]["nodes_total"]["count"]
+            ):
                 logging(
                     "info",
-                    f"Only {online_nodes} nodes reported online during last cycle",
+                    f"Only '{state['stats'][string_name]['nodes_identified']['count']}' nodes were find identified during last cycle",
                 )
+                state["stats"][string_name]["state_identified"] = "offline"
             else:
                 logging(
                     "debug",
-                    f"All {online_nodes} nodes reported online during last cycle",
+                    f"All '{state['stats'][string_name]['nodes_identified']['count']}' nodes were find identified during last cycle",
                 )
-            state["state"] = "online"
-            for sensor in stats_sensors:
-                state["stats"][sensor]["avg"] /= online_nodes
-                if sensors[sensor]["round"] is not None:
-                    state["stats"][sensor]["avg"] = round(
-                        state["stats"][sensor]["avg"], sensors[sensor]["round"]
-                    )
+                state["stats"][string_name]["state_identified"] = "online"
+
+            # Set device state
+            if state["stats"][string_name]["nodes_online"]["count"] == 0:
+                logging("debug", f"No nodes reported online during last cycle")
+                state["stats"][string_name]["state_online"] = "offline"
+            elif (
+                state["stats"][string_name]["nodes_online"]["count"]
+                < state["stats"][string_name]["nodes_total"]["count"]
+            ):
+                logging(
+                    "info",
+                    f"Only '{state['stats'][string_name]['nodes_online']['count']}' nodes reported online during last cycle",
+                )
+                state["stats"][string_name]["state_online"] = "online"
+            else:
+                logging(
+                    "debug",
+                    f"All '{state['stats'][string_name]['nodes_online']['count']}' nodes reported online during last cycle",
+                )
+                state["stats"][string_name]["state_online"] = "online"
+
         else:
             logging("debug", f"No nodes reported online during last cycle")
-            for sensor in stats_sensors:
-                for op in stats_ops:
-                    state["stats"][sensor][op] = 0
 
         time_up = uptime.uptime()
         result = "%01d" % int(time_up / 86400)
@@ -557,7 +725,83 @@ def taptap_tele():
             raise MqttError("MQTT not connected!")
 
 
-def taptap_power_event(data, now):
+def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
+    logging("debug", "Into reset_stat_sensor")
+
+    if sensor not in state_data:
+        state_data[sensor] = {}
+
+    if type in ["daily", "weekly", "monthly", "yearly"]:
+        if type not in state_data[sensor] or reset_sensor_integral(type, dt):
+            state_data[sensor][type] = 0
+    elif type in ["count"]:
+        state_data[sensor][type] = 0
+    else:
+        state_data[sensor][type] = None
+
+
+def update_stat_sensor(sensor: str, type: str, state_data: dict, value) -> None:
+    logging("debug", "Into update_stat_sensor")
+
+    if type == "max":
+        if state_data[sensor][type] is None or value > state_data[sensor][type]:
+            state_data[sensor][type] = value
+    elif type == "min":
+        if state_data[sensor][type] is None or value < state_data[sensor][type]:
+            state_data[sensor][type] = value
+    elif type == "sum":
+        if state_data[sensor][type] is None:
+            state_data[sensor][type] = value
+        else:
+            state_data[sensor][type] += value
+    elif type == "avg":
+        if state_data[sensor][type] is None:
+            state_data[sensor][type] = value
+        else:
+            state_data[sensor][type] += (value - state_data[sensor][type]) / (
+                state_data["nodes_online"]["count"]
+            )
+    elif type in ["daily", "weekly", "monthly", "yearly"]:
+        state_data[sensor][type] += value
+
+
+def reset_node_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
+    logging("debug", "Into reset_node_sensor")
+
+    if sensors[sensor]["avail_online_key"] == "state_init":
+        if sensor not in state_data:
+            state_data[sensor] = None
+    elif sensor not in state_data:
+        if type in ["daily", "weekly", "monthly", "yearly"]:
+            state_data[sensor] = 0
+        else:
+            state_data[sensor] = None
+    elif type in ["daily", "weekly", "monthly", "yearly"]:
+        if reset_sensor_integral(type, dt):
+            state_data[sensor] = 0
+    else:
+        state_data[sensor] = None
+
+
+def reset_sensor_integral(type: str, dt: datetime) -> bool:
+    logging("debug", "Into reset_sensor_integral")
+
+    if (
+        (dt["last"].year != dt["now"].year and type in ["daily", "monthly", "yearly"])
+        or (dt["last"].month != dt["now"].month and type in ["daily", "monthly"])
+        or (dt["last"].day != dt["now"].day and type == "daily")
+        or (
+            dt["last"].isocalendar()[1] != dt["now"].isocalendar()[1]
+            and type == "weekly"
+        )
+    ):
+        # reset integral
+        return True
+    else:
+        return False
+
+
+def taptap_power_event(data: dict, now: float) -> bool:
     logging("debug", "Into taptap_power_event")
 
     for name in [
@@ -594,7 +838,7 @@ def taptap_power_event(data, now):
                 logging("debug", data)
                 return False
             if name == "dc_dc_duty_cycle":
-                data["duty_cycle"] = round(data.pop("dc_dc_duty_cycle") * 100, 2)
+                data["duty_cycle"] = data["dc_dc_duty_cycle"] * 100
         elif name in ["rssi"]:
             if not isinstance(data[name], int):
                 logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
@@ -658,8 +902,13 @@ def taptap_power_event(data, now):
                 logging("debug", data)
                 return False
             else:
-                data["power"] = data["voltage_out"] * data["current"]
-                if not taptap_enumerate_node(data["node_id"]):
+                # Calculate power and current_out
+                data["current_out"] = data.pop("current")
+                data["power"] = data["voltage_out"] * data["current_out"]
+                data["current_in"] = (
+                    data["power"] / data["voltage_in"] if data["voltage_in"] else 0.0
+                )
+                if not taptap_enumerate_node(data["gateway_id"], data["node_id"]):
                     # get node name and serial and enumerate if necessary
                     logging(
                         "warning",
@@ -672,11 +921,13 @@ def taptap_power_event(data, now):
     return False
 
 
-def taptap_infrastructure_event(data):
+def taptap_infrastructure_event(data: dict) -> bool:
     logging("debug", "Into taptap_infrastructure_event")
     global nodes
     global gateways
-    global nodes_names_ids
+    global nodes_ids
+    global nodes_unknown
+    global nodes_configured
 
     enumerated = False
     pattern_id = re.compile(r"^\d+$")
@@ -775,66 +1026,84 @@ def taptap_infrastructure_event(data):
                     "warning",
                     f"Invalid barcode format in the infrastructure event for node id: '{node_id}'",
                 )
-            elif (
-                data["nodes"][gateway_id][node_id]["barcode"]
-                not in nodes_serials_names.keys()
-            ):
-                logging(
-                    "warning",
-                    f"Unknown serial detected in the infrastructure event: '{data['nodes'][gateway_id][node_id]['barcode']}'",
-                )
-                logging("debug", data)
             else:
                 # If we reach this point, the serial is valid
                 node_serial = data["nodes"][gateway_id][node_id]["barcode"]
-                node_name = nodes_serials_names[node_serial]
+                gateway_address = (
+                    gateways[gateway_id]["address"]
+                    if gateway_id in gateways.keys()
+                    else None
+                )
                 logging(
                     "debug",
-                    f"Discovered valid serial: {node_serial} and node name: {node_name} for node id: {node_id}",
+                    f"Discovered valid node serial: {node_serial}",
                 )
-                for key in list(nodes):
-                    # Update mapping table
-                    if key != node_id:
-                        if (
-                            nodes[key]["node_serial"] == node_serial
-                            or nodes[key]["node_name"] == node_name
-                        ):
-                            # Some other Node is using this node serial or name, delete those records
+                nodes_ids.pop(node_id, None)
+                for node_name in sorted(nodes.keys()):
+                    if nodes[node_name]["node_serial"] == node_serial:
+                        if nodes[node_name]["node_id"] != node_id:
+                            # discovered new permanent mapping
                             logging(
                                 "info",
-                                f"Delete invalid serial {node_serial} and node name: {node_name} entries for node id: {key}",
+                                f"Permanently enumerated node id: {node_id} to node name: {node_name} and serial: {node_serial}",
                             )
-                            nodes.pop(key)
-                            nodes_names_ids.pop(node_name)
                             enumerated = True
-
-                if node_id not in nodes.keys():
-                    # discovered new permanent mapping
-                    logging(
-                        "info",
-                        f"Permanently enumerated node id: {node_id} to node name: {node_name} and serial: {node_serial}",
-                    )
-                    nodes[node_id] = {
-                        "node_serial": node_serial,
-                        "node_name": node_name,
-                    }
-                    nodes_names_ids[node_name] = node_id
-                    enumerated = True
-                elif (
-                    nodes[node_id]["node_serial"] != node_serial
-                    or nodes[node_id]["node_name"] != node_name
-                ):
-                    # there is different serial or name for this node id - update it
-                    logging(
-                        "info",
-                        f"Updating node name {node_name} and serial: {node_serial} for node id: {node_id}",
-                    )
-                    nodes[node_id] = {
-                        "node_serial": node_serial,
-                        "node_name": node_name,
-                    }
-                    nodes_names_ids[node_name] = node_id
-                    enumerated = True
+                        nodes[node_name].update(
+                            {
+                                "node_id": node_id,
+                                "gateway_id": gateway_id,
+                                "gateway_address": gateway_address,
+                            }
+                        )
+                        nodes_ids[node_id] = node_name
+                    elif nodes[node_name]["node_id"] == node_id:
+                        # delete temporary mapping
+                        logging(
+                            "info",
+                            f"Delete invalid serial {node_serial} and node name: {node_name} entries for node id: {node_id}",
+                        )
+                        enumerated = True
+                        nodes[node_name].update(
+                            {
+                                "node_id": None,
+                                "gateway_id": None,
+                                "gateway_address": None,
+                            }
+                        )
+                if node_id not in nodes_ids:
+                    for node_name in sorted(nodes.keys()):
+                        if nodes[node_name]["node_serial"] is None:
+                            # create permanent mapping for unknown serial
+                            logging(
+                                "warning",
+                                f"Discovered unconfigured node serial {node_serial} on node id: {node_id} assigning it to the first available node name: {node_name}",
+                            )
+                            logging(
+                                "warning",
+                                f"Consider to permanently assign discovered node serial: {node_serial} to the correct node name in the configuration!",
+                            )
+                            nodes_configured = False
+                            enumerated = True
+                            nodes[node_name].update(
+                                {
+                                    "node_id": node_id,
+                                    "node_serial": node_serial,
+                                    "gateway_id": gateway_id,
+                                    "gateway_address": gateway_address,
+                                }
+                            )
+                            nodes_ids[node_id] = node_name
+                            taptap_nodes_conf("warning")
+                            break
+                    else:
+                        logging(
+                            "error",
+                            f"Discovered unconfigured node serial {node_serial} on node id: {node_id} but there is not any free node_name to assign!",
+                        )
+                        logging(
+                            "error",
+                            f"You shall define all node names and corresponding node serials in the configuration!",
+                        )
 
     if not enumerated:
         logging(
@@ -849,49 +1118,106 @@ def taptap_infrastructure_event(data):
     return enumerated
 
 
-def taptap_enumerate_node(node_id):
+def taptap_nodes_conf(level: str) -> None:
+    logging("debug", "Into taptap_nodes_conf")
+    if nodes_configured:
+        # all nodes are properly configured
+        return
+
+    nodes_conf = []
+    for node_name in sorted(nodes.keys()):
+        if nodes[node_name]["node_serial"] is not None:
+            if nodes[node_name]["string_name"] is not None:
+                node_name
+                nodes_conf.append(
+                    nodes[node_name]["string_name"]
+                    + ":"
+                    + nodes[node_name]["node_name_short"]
+                    + ":"
+                    + nodes[node_name]["node_serial"]
+                )
+            else:
+                nodes_conf.append(
+                    ":" + node_name + ":" + nodes[node_name]["node_serial"]
+                )
+        elif nodes[node_name]["string_name"] is not None:
+            nodes_conf.append(nodes[node_name]["string_name"] + ":" + node_name + ":")
+        else:
+            nodes_conf.append(":" + node_name + ":")
+    logging(
+        level,
+        f"To simplify nodes configuration you will find all currently discovered nodes printed bellow in the proper format. Adjust string and modules names to your needs.",
+    )
+    logging(
+        level,
+        ", ".join(nodes_conf),
+    )
+
+
+def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
     logging("debug", "Into taptap_enumerate_node")
     global nodes
-    global nodes_names_ids
 
-    if node_id in nodes.keys():
+    if node_id in nodes_ids.keys():
         # node was already discovered
+        node_name = nodes_ids[node_id]
         logging(
             "debug",
-            f"Node id: {node_id} already enumerated to node name: '{nodes[node_id]['node_name']}' and serial: '{nodes[node_id]['node_serial']}'",
+            f"Node id: {node_id} already enumerated to node name: '{node_name}' and serial: '{nodes[node_name]['node_serial']}'",
         )
+        if (
+            gateway_id in gateways.keys()
+            and gateways[gateway_id]["address"] != nodes[node_name]["gateway_address"]
+        ):
+            nodes[node_name]["gateway_address"] = gateways[gateway_id]["address"]
+            logging(
+                "info",
+                f"Updated gateway address for node id: {node_id} to '{gateways[gateway_id]['address']}'",
+            )
         return True
     else:
         # need to find unused node name and assign it to node_id temporarily
-        for node_name in nodes_names:
-            if node_name not in nodes_names_ids.keys():
-                nodes[node_id] = {"node_serial": "", "node_name": node_name}
-                nodes_names_ids[node_name] = node_id
+        for node_name in nodes.keys():
+            if nodes[node_name]["node_id"] is None:
+                nodes[node_name]["node_id"] = node_id
                 logging(
                     "info",
                     f"Temporary enumerated node id: {node_id} to node name: {node_name}",
                 )
+                if (
+                    gateway_id in gateways.keys()
+                    and gateways[gateway_id]["address"]
+                    != nodes[node_name]["gateway_address"]
+                ):
+                    nodes[node_name]["gateway_address"] = gateways[gateway_id][
+                        "address"
+                    ]
+                    logging(
+                        "info",
+                        f"Updated gateway address for node id: {node_id} to '{gateways[gateway_id]['address']}'",
+                    )
                 return True
 
     logging(
         "warning",
         f"Unable to enumerate node id: {node_id} - no more node names available!",
     )
-    logging("debug", nodes_names_ids)
+    logging("debug", nodes)
     return False
 
 
-def taptap_discovery():
+def taptap_discovery(mode: int) -> None:
     logging("debug", "Into taptap_discovery")
+
     if not config["HA"]["DISCOVERY_PREFIX"]:
         return
     if str_to_bool(config["HA"]["DISCOVERY_LEGACY"]):
-        taptap_discovery_legacy()
+        taptap_discovery_legacy(mode)
     else:
-        taptap_discovery_device()
+        taptap_discovery_device(mode)
 
 
-def taptap_discovery_device():
+def taptap_discovery_device(mode: int) -> None:
     logging("debug", "Into taptap_discovery_device")
     global discovery
 
@@ -899,7 +1225,7 @@ def taptap_discovery_device():
         uuid.uuid5(uuid.NAMESPACE_URL, "taptap_" + config["TAPTAP"]["TOPIC_NAME"])
     )
 
-    if discovery is None:
+    if mode:
         discovery = {}
         discovery["device"] = {
             "identifiers": object_id,
@@ -917,104 +1243,45 @@ def taptap_discovery_device():
 
         # Statistic sensors components
         discovery["components"] = {}
-        for sensor in stats_sensors:
-            for op in stats_ops:
-                sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + sensor + "_" + op
-                sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
-                discovery["components"][sensor_id] = {
-                    "platform": "sensor",
-                    "name": (sensor + " " + op).replace("_", " ").title(),
-                    "unique_id": sensor_uuid,
-                    "default_entity_id": "sensor." + sensor_id,
-                    "device_class": sensors[sensor]["class"],
-                    "unit_of_measurement": sensors[sensor]["unit"],
-                    "state_topic": state_topic,
-                    "value_template": "{{ value_json.stats."
-                    + sensor
-                    + "."
-                    + op
-                    + " }}",
-                    "availability_mode": "all",
-                    "availability": [{"topic": lwt_topic}],
-                }
+        for sensor in sensors.keys():
+            if strings:
+                for string_name in strings.keys():
+                    for type in sensors[sensor]["type_string"]:
+                        name = "_".join(["string", string_name, sensor, type])
+                        taptap_discovery_device_sensor(
+                            name,
+                            sensor,
+                            "strings",
+                            ".".join(["stats", string_name, sensor, type]),
+                        )
 
-                if (
-                    str_to_bool(config["HA"]["STATS_AVAILABILITY_ONLINE"])
-                    and sensors[sensor]["avail_online_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json."
-                            + sensors[sensor]["avail_online_key"]
-                            + " }}",
-                        },
+                for type in sensors[sensor]["type_stat"]:
+                    name = "_".join(["all", sensor, type])
+                    taptap_discovery_device_sensor(
+                        name,
+                        sensor,
+                        "stats",
+                        ".".join(["stats", "_all_", sensor, type]),
                     )
-                if (
-                    str_to_bool(config["HA"]["STATS_AVAILABILITY_SERIAL"])
-                    and sensors[sensor]["avail_serial_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json."
-                            + sensors[sensor]["avail_serial_key"]
-                            + " }}",
-                        },
+            else:
+                for type in sensors[sensor]["type_string"]:
+                    name = "_".join(["all", sensor, type])
+                    taptap_discovery_device_sensor(
+                        name,
+                        sensor,
+                        "stats",
+                        ".".join(["stats", "_all_", sensor, type]),
                     )
 
         # Node sensors components
-        for node_name in nodes_names:
-            node_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + node_name
+        for node_name in nodes.keys():
             for sensor in sensors.keys():
-                sensor_id = node_id + "_" + sensor
-                sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
-                discovery["components"][sensor_id] = {
-                    "platform": "sensor",
-                    "name": (node_name + " " + sensor).replace("_", " ").title(),
-                    "unique_id": sensor_uuid,
-                    "default_entity_id": "sensor." + sensor_id,
-                    "device_class": sensors[sensor]["class"],
-                    "unit_of_measurement": sensors[sensor]["unit"],
-                    "state_topic": state_topic,
-                    "value_template": "{{ value_json.nodes."
-                    + node_name
-                    + "."
-                    + sensor
-                    + " }}",
-                    "json_attributes_topic": "{{}}",
-                    "availability_mode": "all",
-                    "availability": [{"topic": lwt_topic}],
-                }
-
-                if (
-                    str_to_bool(config["HA"]["NODE_AVAILABILITY_ONLINE"])
-                    and sensors[sensor]["avail_online_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json.nodes."
-                            + node_name
-                            + "."
-                            + sensors[sensor]["avail_online_key"]
-                            + " }}",
-                        },
-                    )
-                if (
-                    str_to_bool(config["HA"]["NODE_AVAILABILITY_SERIAL"])
-                    and sensors[sensor]["avail_serial_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json.nodes."
-                            + node_name
-                            + "."
-                            + sensors[sensor]["avail_serial_key"]
-                            + " }}",
-                        },
-                    )
+                if not sensors[sensor]["type_node"]:
+                    continue
+                name = "_".join([node_name, sensor])
+                taptap_discovery_device_sensor(
+                    name, sensor, "nodes", ".".join(["nodes", node_name, sensor])
+                )
 
         discovery["state_topic"] = state_topic
         discovery["qos"] = config["MQTT"]["QOS"]
@@ -1037,7 +1304,70 @@ def taptap_discovery_device():
             raise MqttError("MQTT not connected!")
 
 
-def taptap_discovery_legacy():
+def taptap_discovery_device_sensor(
+    name: str, sensor: str, mode: str, state_json_path: str
+) -> None:
+    logging("debug", "Into taptap_discovery_device_sensor")
+    global discovery
+
+    sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + name
+    sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
+    discovery["components"][sensor_id] = {
+        "platform": "sensor",
+        "name": name.replace("_", " ").title(),
+        "unique_id": sensor_uuid,
+        "default_entity_id": "sensor." + sensor_id,
+        "device_class": sensors[sensor]["device_class"],
+        "unit_of_measurement": sensors[sensor]["unit"],
+        "value_template": "{{ value_json." + state_json_path + " }}",
+        "availability_mode": "all",
+        "availability": [{"topic": lwt_topic}],
+    }
+
+    if sensors[sensor]["precision"] is not None:
+        discovery["components"][sensor_id]["suggested_display_precision"] = sensors[
+            sensor
+        ]["precision"]
+
+    if sensors[sensor]["state_class"] and sensor in config["HA"][
+        mode.upper() + "_SENSORS_RECORDER"
+    ].split(","):
+        discovery["components"][sensor_id]["state_class"] = sensors[sensor][
+            "state_class"
+        ]
+
+    if (
+        str_to_bool(config["HA"][mode.upper() + "_AVAILABILITY_ONLINE"])
+        and sensors[sensor]["avail_online_key"]
+    ):
+        discovery["components"][sensor_id]["availability"].append(
+            {
+                "topic": state_topic,
+                "value_template": "{{ value_json."
+                + state_json_path
+                + "."
+                + sensors[sensor]["avail_online_key"]
+                + " }}",
+            },
+        )
+
+    if (
+        str_to_bool(config["HA"][mode.upper() + "_AVAILABILITY_IDENTIFIED"])
+        and sensors[sensor]["avail_ident_key"]
+    ):
+        discovery["components"][sensor_id]["availability"].append(
+            {
+                "topic": state_topic,
+                "value_template": "{{ value_json."
+                + state_json_path
+                + "."
+                + sensors[sensor]["avail_ident_key"]
+                + " }}",
+            },
+        )
+
+
+def taptap_discovery_legacy(mode: int) -> None:
     logging("debug", "Into taptap_discovery_legacy")
     global discovery
 
@@ -1045,7 +1375,7 @@ def taptap_discovery_legacy():
         uuid.uuid5(uuid.NAMESPACE_URL, "taptap_" + config["TAPTAP"]["TOPIC_NAME"])
     )
 
-    if discovery is None:
+    if mode:
         discovery = {}
         device = {
             "identifiers": object_id,
@@ -1062,107 +1392,60 @@ def taptap_discovery_legacy():
         }
 
         # Statistic sensors components
-        for sensor in stats_sensors:
-            for op in stats_ops:
-                sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + sensor + "_" + op
-                sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
-                discovery["sensor/" + object_id + "/" + sensor_id] = {
-                    "device": device,
-                    "origin": origin,
-                    "name": sensor_id.replace("_", " ").title(),
-                    "unique_id": sensor_uuid,
-                    "default_entity_id": "sensor." + sensor_id,
-                    "device_class": sensors[sensor]["class"],
-                    "unit_of_measurement": sensors[sensor]["unit"],
-                    "state_topic": state_topic,
-                    "value_template": "{{ value_json.stats."
-                    + sensor
-                    + "."
-                    + op
-                    + " }}",
-                    "availability_mode": "all",
-                    "availability": [{"topic": lwt_topic}],
-                    "qos": config["MQTT"]["QOS"],
-                }
+        for sensor in sensors.keys():
+            if strings:
+                for string_name in strings.keys():
+                    for type in sensors[sensor]["type_string"]:
+                        name = "_".join(["string", string_name, sensor, type])
+                        taptap_discovery_device_sensor(
+                            name,
+                            sensor,
+                            "strings",
+                            ".".join(["stats", string_name, sensor, type]),
+                            object_id,
+                            origin,
+                            device,
+                        )
 
-                if (
-                    str_to_bool(config["HA"]["STATS_AVAILABILITY_ONLINE"])
-                    and sensors[sensor]["avail_online_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json."
-                            + sensors[sensor]["avail_online_key"]
-                            + " }}",
-                        },
+                for type in sensors[sensor]["type_stat"]:
+                    name = "_".join(["all", sensor, type])
+                    taptap_discovery_device_sensor(
+                        name,
+                        sensor,
+                        "stats",
+                        ".".join(["stats", "_all_", sensor, type]),
+                        object_id,
+                        origin,
+                        device,
                     )
-                if (
-                    str_to_bool(config["HA"]["STATS_AVAILABILITY_SERIAL"])
-                    and sensors[sensor]["avail_serial_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json."
-                            + sensors[sensor]["avail_serial_key"]
-                            + " }}",
-                        },
+            else:
+                for type in sensors[sensor]["type_string"]:
+                    name = "_".join(["all", sensor, type])
+                    taptap_discovery_device_sensor(
+                        name,
+                        sensor,
+                        "stats",
+                        ".".join(["stats", "_all_", sensor, type]),
+                        object_id,
+                        origin,
+                        device,
                     )
 
         # Node sensors components
-        for node_name in nodes_names:
-            node_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + node_name
+        for node_name in nodes.keys():
             for sensor in sensors.keys():
-                sensor_id = node_id + "_" + sensor
-                sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
-                discovery["sensor/" + object_id + "/" + sensor_id] = {
-                    "device": device,
-                    "origin": origin,
-                    "name": sensor_id.replace("_", " ").title(),
-                    "unique_id": sensor_uuid,
-                    "default_entity_id": "sensor." + sensor_id,
-                    "device_class": sensors[sensor]["class"],
-                    "unit_of_measurement": sensors[sensor]["unit"],
-                    "state_topic": state_topic,
-                    "value_template": "{{ value_json.nodes."
-                    + node_name
-                    + "."
-                    + sensor
-                    + " }}",
-                    "availability_mode": "all",
-                    "availability": [{"topic": lwt_topic}],
-                    "qos": config["MQTT"]["QOS"],
-                }
-
-                if (
-                    str_to_bool(config["HA"]["NODE_AVAILABILITY_ONLINE"])
-                    and sensors[sensor]["avail_online_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json.nodes."
-                            + node_name
-                            + "."
-                            + sensors[sensor]["avail_online_key"]
-                            + " }}",
-                        },
-                    )
-                if (
-                    str_to_bool(config["HA"]["NODE_AVAILABILITY_SERIAL"])
-                    and sensors[sensor]["avail_serial_key"]
-                ):
-                    discovery["components"][sensor_id]["availability"].append(
-                        {
-                            "topic": state_topic,
-                            "value_template": "{{ value_json.nodes."
-                            + node_name
-                            + "."
-                            + sensors[sensor]["avail_serial_key"]
-                            + " }}",
-                        },
-                    )
+                if not sensors[sensor]["type_node"]:
+                    continue
+                name = "_".join([node_name, sensor])
+                taptap_discovery_device_sensor(
+                    name,
+                    sensor,
+                    "nodes",
+                    ".".join(["nodes", node_name, sensor]),
+                    object_id,
+                    origin,
+                    device,
+                )
 
     if len(discovery):
         for component in discovery.keys():
@@ -1183,7 +1466,78 @@ def taptap_discovery_legacy():
                 raise MqttError("MQTT not connected!")
 
 
-def taptap_init():
+def taptap_discovery_legacy_sensor(
+    name: str,
+    sensor: str,
+    mode: str,
+    state_json_path: str,
+    object_id: str,
+    origin: str,
+    device: str,
+) -> None:
+    logging("debug", "Into taptap_discovery_device_sensor")
+    global discovery
+
+    sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + name
+    sensor_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, sensor_id))
+    key = "sensor/" + object_id + "/" + sensor_id
+    discovery[key] = {
+        "device": device,
+        "origin": origin,
+        "name": name.replace("_", " ").title(),
+        "unique_id": sensor_uuid,
+        "default_entity_id": "sensor." + sensor_id,
+        "device_class": sensors[sensor]["device_class"],
+        "unit_of_measurement": sensors[sensor]["unit"],
+        "state_topic": state_topic,
+        "value_template": "{{ value_json." + state_json_path + " }}",
+        "availability_mode": "all",
+        "availability": [{"topic": lwt_topic}],
+        "qos": config["MQTT"]["QOS"],
+    }
+
+    if sensors[sensor]["precision"] is not None:
+        discovery[key][sensor_id]["suggested_display_precision"] = sensors[sensor][
+            "precision"
+        ]
+
+    if sensors[sensor]["state_class"] and sensor in config["HA"][
+        mode.upper() + "_SENSORS_RECORDER"
+    ].split(","):
+        discovery[key][sensor_id]["state_class"] = sensors[sensor]["state_class"]
+
+    if (
+        str_to_bool(config["HA"][mode.upper() + "_AVAILABILITY_ONLINE"])
+        and sensors[sensor]["avail_online_key"]
+    ):
+        discovery[key][sensor_id]["availability"].append(
+            {
+                "topic": state_topic,
+                "value_template": "{{ value_json."
+                + state_json_path
+                + "."
+                + sensors[sensor]["avail_online_key"]
+                + " }}",
+            },
+        )
+
+    if (
+        str_to_bool(config["HA"][mode.upper() + "_AVAILABILITY_IDENTIFIED"])
+        and sensors[sensor]["avail_ident_key"]
+    ):
+        discovery[key][sensor_id]["availability"].append(
+            {
+                "topic": state_topic,
+                "value_template": "{{ value_json."
+                + state_json_path
+                + "."
+                + sensors[sensor]["avail_ident_key"]
+                + " }}",
+            },
+        )
+
+
+def taptap_init() -> None:
     logging("debug", "Into taptap_init")
     global taptap
 
@@ -1260,7 +1614,7 @@ def taptap_init():
         raise AppError("TapTap process can't be started!")
 
 
-def taptap_cleanup():
+def taptap_cleanup() -> None:
     logging("debug", "Into taptap_cleanup")
     global taptap
 
@@ -1285,7 +1639,7 @@ def taptap_cleanup():
         taptap = None
 
 
-def mqtt_init():
+def mqtt_init() -> None:
     logging("debug", "Into mqtt_init")
     global client
 
@@ -1330,7 +1684,7 @@ def mqtt_init():
         client.subscribe(config["HA"]["BIRTH_TOPIC"])
 
 
-def mqtt_cleanup():
+def mqtt_cleanup() -> None:
     logging("debug", "Into mqtt_cleanup")
     global client
 
@@ -1344,7 +1698,7 @@ def mqtt_cleanup():
 
 
 # The callback for when the client receives a CONNACK response from the server.
-def mqtt_on_connect(client, userdata, flags, rc):
+def mqtt_on_connect(client, userdata, flags, rc) -> None:
     logging("debug", "Into mqtt_on_connect")
     if rc != 0:
         logging("warning", "MQTT unexpected connect return code " + str(rc))
@@ -1353,7 +1707,7 @@ def mqtt_on_connect(client, userdata, flags, rc):
 
 
 # The callback for when the client receives a DISCONNECT from the server.
-def mqtt_on_disconnect(client, userdata, rc):
+def mqtt_on_disconnect(client, userdata, rc) -> None:
     logging("debug", "Into mqtt_on_disconnect")
     if rc != 0:
         logging("warning", "MQTT unexpected disconnect return code " + str(rc))
@@ -1361,7 +1715,7 @@ def mqtt_on_disconnect(client, userdata, rc):
 
 
 # The callback for when a PUBLISH message is received from the server.
-def mqtt_on_message(client, userdata, msg):
+def mqtt_on_message(client, userdata, msg) -> None:
     logging("debug", "Into mqtt_on_message")
     topic = str(msg.topic)
     payload = str(msg.payload.decode("utf-8"))
@@ -1369,13 +1723,13 @@ def mqtt_on_message(client, userdata, msg):
     match_birth = re.match(r"^" + config["HA"]["BIRTH_TOPIC"] + "$", topic)
     if config["HA"]["BIRTH_TOPIC"] and match_birth:
         # discovery
-        taptap_discovery()
+        taptap_discovery(0)
     else:
         logging("warning", "Unknown topic: " + topic + ", message: " + payload)
 
 
 # Touch state file on successful run
-def run_file(mode):
+def run_file(mode: int) -> None:
     logging("debug", "Into run_file")
     if mode:
         if config["RUNTIME"]["RUN_FILE"]:
@@ -1398,7 +1752,7 @@ def run_file(mode):
         os.remove(config["RUNTIME"]["RUN_FILE"])
 
 
-def str_to_bool(string):
+def str_to_bool(string: str) -> bool:
     # Converts `s` to boolean. Assumes string is case-insensitive
     return string.lower() in ["true", "1", "t", "y", "yes"]
 
@@ -1410,6 +1764,8 @@ while True:
     try:
         # Init counters
         last_tele = 0
+        # Init modules conf
+        taptap_conf()
         # Create mqtt client
         if not client:
             # Init mqtt
@@ -1418,7 +1774,7 @@ while True:
             # Init taptap
             taptap_init()
         # Sent discovery
-        taptap_discovery()
+        taptap_discovery(1)
         # Run update loop
         while True:
             taptap_tele()
@@ -1443,6 +1799,8 @@ while True:
             mqtt_cleanup()
             taptap_cleanup()
             run_file(0)
+            # Print any unknown nodes
+            taptap_nodes_conf("error")
             # Graceful shutdown
             sys.exit(0)
         else:

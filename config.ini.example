@@ -23,11 +23,19 @@ SERIAL =
 ADDRESS = 192.168.1.50
 # IP port of the Ethernet to Modbus convertor, typically 502
 PORT = 502
-# Tuple of modules friendly names as defined by user and modules serial numbers in the format NAME1:SERIAL1, NAME2:SERIAL2,...
-# Tigo modules serial numbers can be found on the modules barcode stickers or in the Tigo cloud. Serials have X-XXXXXX format.
+# Triplets of:
+# - module STRING name as defined by user (optional), can have [a-z, A-Z, 0-9, _] characters
+# - module NAME as defined by user, can have [a-z, A-Z, 0-9, _] characters
+# - module SERIAL number as found on the modules barcode stickers or in the Tigo cloud (optional),in the X-XXXXXX format.
+# with resulting format STRING1:NAME1:SERIAL1, STRING1:NAME2:SERIAL2, STRING2:NAME3:SERIAL3, ...
+#
+# If STRING is not defined/exists all modules will be considered in tha same string; in this case use format :NAME1:SERIAL1, :NAME2:SERIAL2, ...
+# If SERIAL is not defined/known discovered module will be assigned to randomly picked defined module NAME; in this case use format STRING1:NAME1:, STRING1:NAME2:, STRING2:NAME3:, ...
+# If both STRING and SERIAL names are not defined/known use following format: :NAME1:, :NAME2:, :NAME3:, ...
+#
 # Program will log any unknown serial number so you can use it to discover serials if you do not know them.
 # Be aware that messages with serial numbers are emitted rarely, very often only during night time! Wait as lest 24hrs for the complete discovery!
-MODULES_SERIALS = A01:A-AAAAAAA, A02: A-BAAAAAA, A03:A-CAAAAAA, A04:A-DAAAAAA, A05:A-EAAAAAA
+MODULES = A:01:A-AAAAAAA, A:02: A-BAAAAAA, A:03:A-CAAAAAA, A:04:A-DAAAAAA, A:05:A-EAAAAAA
 # MQTT path to be used for TapTap MQTT topics.
 TOPIC_PREFIX = taptap
 # Name to be use as device name in Home Assistant and also in the TapTap MQTT topics for this installation.
@@ -35,7 +43,7 @@ TOPIC_NAME = tigo1
 # Time after which Tigo module is declared offline if no message is received.
 TIMEOUT = 180
 # How often MQTT state topic shall be updated.
-UPDATE = 10
+UPDATE = 15
 # Persistent data file for taptap to store detected modules serial numbers to be used for fast topology data init during restarts.
 STATE_FILE = ./taptap.json
 
@@ -47,13 +55,23 @@ DISCOVERY_LEGACY = false
 # MQTT topic to monitor home Assistant to come online to re-post discovery message, set empty to disable this feature.
 BIRTH_TOPIC = homeassistant/status
 # To render Home Assistant node entities 'UNAVAILABLE' if no message received within TIMEOUT, set to 'true' or 'false'.
-NODE_AVAILABILITY_ONLINE = true
-# To render Home Assistant node entities 'UNAVAILABLE' if node serial is not yet discovered, set to 'true' or 'false'.
-NODE_AVAILABILITY_SERIAL = false
-# To render Home Assistant statistical entities 'UNAVAILABLE' if there is not any node online, set to 'true' or 'false'.
+NODES_AVAILABILITY_ONLINE = false
+# To render Home Assistant node entities 'UNAVAILABLE' if node serial is not yet known, set to 'true' or 'false'.
+NODES_AVAILABILITY_IDENTIFIED = false
+# To render Home Assistant string statistical entities 'UNAVAILABLE' if there are not any nodes online, set to 'true' or 'false'.
+STRINGS_AVAILABILITY_ONLINE = false
+# To render Home Assistant string statistical entities 'UNAVAILABLE' if not all node serials are yet known, set to 'true' or 'false'. Default is 'false'.
+STRINGS_AVAILABILITY_IDENTIFIED = false
+# To render Home Assistant total statistical entities 'UNAVAILABLE' if there are not any nodes online, set to 'true' or 'false'.
 STATS_AVAILABILITY_ONLINE = false
-# To render Home Assistant statistical entities 'UNAVAILABLE' if not all node serials are not yet discovered, set to 'true' or 'false'. Default is 'false'.
-STATS_AVAILABILITY_SERIAL = false
+# To render Home Assistant total statistical entities 'UNAVAILABLE' if not all node serials are yet known, set to 'true' or 'false'. Default is 'false'.
+STATS_AVAILABILITY_IDENTIFIED = false
+# Comma separated list of the node sensors entities which shall have Home Assistant statistic recorder enabled
+NODES_SENSORS_RECORDER = energy
+# Comma separated list of the string statistic sensors entities which shall have Home Assistant statistic recorder enabled
+STRINGS_SENSORS_RECORDER = energy_daily
+# Comma separated list of the total statistic sensors entities which shall have Home Assistant statistic recorder enabled
+STATS_SENSORS_RECORDER = energy_daily
 
 [RUNTIME]
 # Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
