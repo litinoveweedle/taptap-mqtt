@@ -246,9 +246,9 @@ config_validation = {
         "STRINGS_AVAILABILITY_IDENTIFIED": r"^(true|false)$",
         "STATS_AVAILABILITY_ONLINE": r"^(true|false)$",
         "STATS_AVAILABILITY_IDENTIFIED": r"^(true|false)$",
-        "NODES_SENSORS_RECORDER": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
-        "STRINGS_SENSORS_RECORDER": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
-        "STATS_SENSORS_RECORDER": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
+        "NODES_SENSORS_RECORDER?": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
+        "STRINGS_SENSORS_RECORDER?": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
+        "STATS_SENSORS_RECORDER?": r"^(\s*\w+\s*)?(\,\s*\w+\s*)*$",
     },
     "RUNTIME": {
         "MAX_ERROR": r"^\d+$",
