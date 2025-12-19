@@ -930,7 +930,6 @@ def taptap_infrastructure_event(data: dict) -> bool:
     global nodes
     global gateways
     global nodes_ids
-    global nodes_unknown
     global nodes_configured
 
     enumerated = False
@@ -1161,6 +1160,7 @@ def taptap_nodes_conf(level: str) -> None:
 def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
     logging("debug", "Into taptap_enumerate_node")
     global nodes
+    global nodes_ids
 
     if node_id in nodes_ids.keys():
         # node was already discovered
@@ -1184,6 +1184,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
         for node_name in nodes.keys():
             if nodes[node_name]["node_id"] is None:
                 nodes[node_name]["node_id"] = node_id
+                nodes_ids[node_id] = node_name
                 logging(
                     "info",
                     f"Temporary enumerated node id: {node_id} to node name: {node_name}",
