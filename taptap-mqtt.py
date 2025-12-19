@@ -320,8 +320,8 @@ gateways = {}
 # Bool if all nodes have serials configured
 nodes_configured = True
 
-# Init cache struct
-cache = dict.fromkeys(nodes.keys(), {})
+# Power Reports cache
+cache = {}
 
 # Init discovery struct
 discovery = {}
@@ -348,6 +348,7 @@ def taptap_conf() -> None:
     global nodes
     global strings
     global nodes_configured
+    global cache
     nodes_serials = set()
 
     entries = list(map(str.strip, config["TAPTAP"]["MODULES"].split(",")))
@@ -415,6 +416,9 @@ def taptap_conf() -> None:
             "debug",
             f"{len(strings.keys())} strings are is configured, strings statistics are enabled.",
         )
+
+    # Init cache struct
+    cache = dict.fromkeys(nodes.keys(), {})
 
 
 def taptap_tele() -> None:
