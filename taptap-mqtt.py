@@ -367,6 +367,10 @@ def taptap_conf() -> None:
             node_name_short = node_name
 
             if node_string is not None:
+                if node_string == "overall":
+                    logging("error", f"Reserved node string name: {node_string}!")
+                    exit(1)
+
                 node_name = node_string + node_name
                 if node_string not in strings:
                     strings[node_string] = 0
@@ -476,8 +480,8 @@ def taptap_tele() -> None:
         }
 
         # Reset statistic values
-        if "_all_" not in state["stats"]:
-            state["stats"]["_all_"] = {}
+        if "overall" not in state["stats"]:
+            state["stats"]["overall"] = {}
         if strings:
             for string_name in strings.keys():
                 if string_name not in state["stats"]:
@@ -490,12 +494,12 @@ def taptap_tele() -> None:
                 ]
             for sensor in sensors.keys():
                 for type in sensors[sensor]["type_stats"]:
-                    reset_stat_sensor(sensor, type, dt, state["stats"]["_all_"])
+                    reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
         else:
             for sensor in sensors.keys():
                 for type in sensors[sensor]["type_string"]:
-                    reset_stat_sensor(sensor, type, dt, state["stats"]["_all_"])
-        state["stats"]["_all_"]["nodes_total"]["count"] = len(nodes.keys())
+                    reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
+        state["stats"]["overall"]["nodes_total"]["count"] = len(nodes.keys())
 
         for node_name in nodes.keys():
             if node_name not in state["nodes"]:
@@ -520,7 +524,7 @@ def taptap_tele() -> None:
             # Set identified state
             if nodes[node_name]["node_serial"] is not None:
                 state["nodes"][node_name]["state_identified"] = "online"
-                state["stats"]["_all_"]["nodes_identified"]["count"] += 1
+                state["stats"]["overall"]["nodes_identified"]["count"] += 1
                 if strings and nodes[node_name]["string_name"] is not None:
                     state["stats"][nodes[node_name]["string_name"]]["nodes_identified"][
                         "count"
@@ -535,7 +539,7 @@ def taptap_tele() -> None:
                 else:
                     logging("debug", f"Node {node_name} is online")
 
-                state["stats"]["_all_"]["nodes_online"]["count"] += 1
+                state["stats"]["overall"]["nodes_online"]["count"] += 1
                 if strings and nodes[node_name]["string_name"] is not None:
                     state["stats"][nodes[node_name]["string_name"]]["nodes_online"][
                         "count"
@@ -598,12 +602,12 @@ def taptap_tele() -> None:
 
                         for type in sensors[sensor]["type_stat"]:
                             update_stat_sensor(
-                                sensor, type, state["stats"]["_all_"], value
+                                sensor, type, state["stats"]["overall"], value
                             )
                     else:
                         for type in sensors[sensor]["type_string"]:
                             update_stat_sensor(
-                                sensor, type, state["stats"]["_all_"], value
+                                sensor, type, state["stats"]["overall"], value
                             )
 
                 state["nodes"][node_name].update(
@@ -653,7 +657,7 @@ def taptap_tele() -> None:
                     }
                 )
 
-        for string_name in ["_all_"] + list(strings.keys()):
+        for string_name in ["overall"] + list(strings.keys()):
             # Set identified state
             if state["stats"][string_name]["nodes_identified"]["count"] == 0:
                 logging("debug", f"No nodes were find identified during last cycle")
@@ -1253,24 +1257,27 @@ def taptap_discovery_device(mode: int) -> None:
                             sensor,
                             "strings",
                             ".".join(["stats", string_name, sensor, type]),
+                            ".".join(["stats", string_name]),
                         )
 
                 for type in sensors[sensor]["type_stat"]:
-                    name = "_".join(["all", sensor, type])
+                    name = "_".join(["overall", sensor, type])
                     taptap_discovery_device_sensor(
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "_all_", sensor, type]),
+                        ".".join(["stats", "overall", sensor, type]),
+                        ".".join(["stats", "overall"]),
                     )
             else:
                 for type in sensors[sensor]["type_string"]:
-                    name = "_".join(["all", sensor, type])
+                    name = "_".join(["overall", sensor, type])
                     taptap_discovery_device_sensor(
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "_all_", sensor, type]),
+                        ".".join(["stats", "overall", sensor, type]),
+                        ".".join(["stats", "overall"]),
                     )
 
         # Node sensors components
@@ -1280,7 +1287,11 @@ def taptap_discovery_device(mode: int) -> None:
                     continue
                 name = "_".join([node_name, sensor])
                 taptap_discovery_device_sensor(
-                    name, sensor, "nodes", ".".join(["nodes", node_name, sensor])
+                    name,
+                    sensor,
+                    "nodes",
+                    ".".join(["nodes", node_name, sensor]),
+                    ".".join(["nodes", node_name]),
                 )
 
         discovery["state_topic"] = state_topic
@@ -1305,7 +1316,11 @@ def taptap_discovery_device(mode: int) -> None:
 
 
 def taptap_discovery_device_sensor(
-    name: str, sensor: str, mode: str, state_json_path: str
+    name: str,
+    sensor: str,
+    mode: str,
+    state_json_path: str,
+    avail_json_path: str,
 ) -> None:
     logging("debug", "Into taptap_discovery_device_sensor")
     global discovery
@@ -1344,7 +1359,7 @@ def taptap_discovery_device_sensor(
             {
                 "topic": state_topic,
                 "value_template": "{{ value_json."
-                + state_json_path
+                + avail_json_path
                 + "."
                 + sensors[sensor]["avail_online_key"]
                 + " }}",
@@ -1359,7 +1374,7 @@ def taptap_discovery_device_sensor(
             {
                 "topic": state_topic,
                 "value_template": "{{ value_json."
-                + state_json_path
+                + avail_json_path
                 + "."
                 + sensors[sensor]["avail_ident_key"]
                 + " }}",
@@ -1397,35 +1412,38 @@ def taptap_discovery_legacy(mode: int) -> None:
                 for string_name in strings.keys():
                     for type in sensors[sensor]["type_string"]:
                         name = "_".join(["string", string_name, sensor, type])
-                        taptap_discovery_device_sensor(
+                        taptap_discovery_legacy_sensor(
                             name,
                             sensor,
                             "strings",
                             ".".join(["stats", string_name, sensor, type]),
+                            ".".join(["stats", string_name]),
                             object_id,
                             origin,
                             device,
                         )
 
                 for type in sensors[sensor]["type_stat"]:
-                    name = "_".join(["all", sensor, type])
-                    taptap_discovery_device_sensor(
+                    name = "_".join(["overall", sensor, type])
+                    taptap_discovery_legacy_sensor(
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "_all_", sensor, type]),
+                        ".".join(["stats", "overall", sensor, type]),
+                        ".".join(["stats", "overall"]),
                         object_id,
                         origin,
                         device,
                     )
             else:
                 for type in sensors[sensor]["type_string"]:
-                    name = "_".join(["all", sensor, type])
-                    taptap_discovery_device_sensor(
+                    name = "_".join(["overall", sensor, type])
+                    taptap_discovery_legacy_sensor(
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "_all_", sensor, type]),
+                        ".".join(["stats", "overall", sensor, type]),
+                        ".".join(["stats", "overall"]),
                         object_id,
                         origin,
                         device,
@@ -1437,11 +1455,12 @@ def taptap_discovery_legacy(mode: int) -> None:
                 if not sensors[sensor]["type_node"]:
                     continue
                 name = "_".join([node_name, sensor])
-                taptap_discovery_device_sensor(
+                taptap_discovery_legacy_sensor(
                     name,
                     sensor,
                     "nodes",
                     ".".join(["nodes", node_name, sensor]),
+                    ".".join(["nodes", node_name]),
                     object_id,
                     origin,
                     device,
@@ -1471,6 +1490,7 @@ def taptap_discovery_legacy_sensor(
     sensor: str,
     mode: str,
     state_json_path: str,
+    avail_json_path: str,
     object_id: str,
     origin: str,
     device: str,
@@ -1514,7 +1534,7 @@ def taptap_discovery_legacy_sensor(
             {
                 "topic": state_topic,
                 "value_template": "{{ value_json."
-                + state_json_path
+                + avail_json_path
                 + "."
                 + sensors[sensor]["avail_online_key"]
                 + " }}",
@@ -1529,7 +1549,7 @@ def taptap_discovery_legacy_sensor(
             {
                 "topic": state_topic,
                 "value_template": "{{ value_json."
-                + state_json_path
+                + avail_json_path
                 + "."
                 + sensors[sensor]["avail_ident_key"]
                 + " }}",
