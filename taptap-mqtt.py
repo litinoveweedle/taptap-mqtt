@@ -1307,7 +1307,7 @@ def taptap_mqtt_send(topic, data, qos):
             client.publish(topic, payload=data, qos=qos)
 
 
-def mqtt_init():
+def mqtt_init() -> None:
     logging("debug", "Into mqtt_init")
     global client
 
