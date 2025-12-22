@@ -44,7 +44,7 @@ log_levels = {
     "debug": 0,
 }
 
-state = {"time": 0, "uptime": 0, "nodes": {}, "stats": {}}
+state = {"time": 0, "uptime": 0, "uptime_sec" : 0, "nodes": {}, "stats": {}}
 sensors = {
     "voltage_in": {
         "state_class": "measurement",
@@ -706,6 +706,7 @@ def taptap_tele() -> None:
             logging("debug", f"No nodes reported online during last cycle")
 
         time_up = uptime.uptime()
+        state["uptime_sec"] = time_up
         result = "%01d" % int(time_up / 86400)
         time_up = time_up % 86400
         result = result + "T" + "%02d" % (int(time_up / 3600))
