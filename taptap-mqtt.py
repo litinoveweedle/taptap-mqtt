@@ -129,6 +129,7 @@ config_validation = {
         "TIMEOUT": r"^\d+$",
         "USER?": r".+",
         "PASS?": r".+",
+        "FORMAT": r"^(ALL|HA|KV)$",
     },
     "TAPTAP": {
         "LOG_LEVEL": r"[error|warning|info|debug]",
@@ -548,9 +549,12 @@ def taptap_tele():
             # Sent State update
             logging("debug", f"Updating MQTT state topic {state_topic}")
             logging("debug", json.dumps(state))
-            client.publish(
-                state_topic, payload=json.dumps(state), qos=int(config["MQTT"]["QOS"])
-            )
+            if config["MQTT"]["FORMAT"] in ["ALL", "HA"]:
+                client.publish(
+                    state_topic, payload=json.dumps(state), qos=int(config["MQTT"]["QOS"])
+                )
+            if config["MQTT"]["FORMAT"] in ["ALL", "KV"]:
+                taptap_mqtt_send(state_topic, state, int(config["MQTT"]["QOS"]))
             last_tele = now
         else:
             logging("error", "MQTT not connected!")
@@ -1283,6 +1287,24 @@ def taptap_cleanup():
                 "error", f"Process TapTap exited unexpectedly with error code: {code}"
             )
         taptap = None
+
+
+def taptap_mqtt_send(topic, data, qos):
+
+    if isinstance(data, dict):
+        for key, value in data.items():
+            new_topic = f"{topic}/{key}" if topic else key
+            taptap_mqtt_send(new_topic, value, qos)
+
+    elif isinstance(data, list):
+        for index, item in enumerate(data):
+            new_topic = f"{topic}/{index}" if topic else str(index)
+            taptap_mqtt_send(new_topic, value, qos)
+
+    else:
+        logging("debug", data)
+        if topic != "":
+            client.publish(topic, payload=data, qos=qos)
 
 
 def mqtt_init():

@@ -11,6 +11,8 @@ TIMEOUT = 5
 USER = mqttuser
 # MQTT password
 PASS = mqttpass
+# publish format, possible values ALL, HA, KV (HA = Home Assistant with JSON in one topic / KV = key/value with one entry per topic)
+FORMAT = HA
 
 [TAPTAP]
 # Log level, possible values are error, warning, info, debug.
