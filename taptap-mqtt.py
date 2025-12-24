@@ -132,7 +132,7 @@ sensors = {
         "avail_ident_key": "state_identified",
         "type_node": {"value": "rssi"},
         "type_string": [],
-        "type_stats": ["min", "max", "avg"],
+        "type_stat": ["min", "max", "avg"],
     },
     "energy": {
         "state_class": "total_increasing",
@@ -497,7 +497,7 @@ def taptap_tele() -> None:
                     string_name
                 ]
             for sensor in sensors.keys():
-                for type in sensors[sensor]["type_stats"]:
+                for type in sensors[sensor]["type_stat"]:
                     reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
         else:
             for sensor in sensors.keys():
