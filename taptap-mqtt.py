@@ -99,7 +99,7 @@ sensors = {
         "avail_ident_key": "state_identified",
         "type_node": {"value": "power"},
         "type_string": ["min", "max", "avg", "sum"],
-        "type_stat ": ["sum"],
+        "type_stat": ["sum"],
     },
     "temperature": {
         "state_class": "measurement",
