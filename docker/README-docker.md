@@ -56,6 +56,7 @@ From the folder containing the Dockerfile, run:
 ```bash
 docker build -t taptap-mqtt:latest .
 ```
+Depending on your user's privilages, you may have to run the docker commands with sudo if you don't have root privilages. 
 
 This builds a Docker image named `taptap-mqtt` with the tag `latest`, using the files in the current directory.
 
@@ -97,7 +98,6 @@ docker logs -f taptap-mqtt
 Create a file named `docker-compose.yml` with:
 
 ```yaml
-version: "3.8"
 services:
   taptap-mqtt:
     image: taptap-mqtt:latest
@@ -113,7 +113,6 @@ Or create it automatically:
 
 ```bash
 cat << 'EOF' > docker-compose.yml
-version: "3.8"
 services:
   taptap-mqtt:
     image: taptap-mqtt:latest
