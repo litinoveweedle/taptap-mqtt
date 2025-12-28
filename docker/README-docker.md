@@ -56,7 +56,7 @@ From the folder containing the Dockerfile, run:
 ```bash
 docker build -t taptap-mqtt:latest .
 ```
-Depending on your user's privilages, you may have to run the docker commands with sudo if you don't have root privilages. 
+Depending on your user's privilages, you may have to run the docker commands with `sudo` if you don't have root privilages. 
 
 This builds a Docker image named `taptap-mqtt` with the tag `latest`, using the files in the current directory.
 
