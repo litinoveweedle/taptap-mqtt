@@ -201,3 +201,128 @@ docker restart taptap-mqtt
 ```
 
 ---
+
+
+# **Docker Cheat Sheet**
+
+A quick reference for common Docker commands used when building, running, and managing the TapTap‑MQTT container.
+
+---
+
+## **Images**
+
+### **List all images**
+```bash
+docker images
+```
+
+### **Build an image**
+```bash
+docker build -t taptap-mqtt:latest .
+```
+
+### **Remove an image**
+```bash
+docker rmi taptap-mqtt:latest
+```
+
+---
+
+## **Containers**
+
+### **List running containers**
+```bash
+docker ps
+```
+
+### **List all containers (including stopped)**
+```bash
+docker ps -a
+```
+
+### **Start a container**
+```bash
+docker start taptap-mqtt
+```
+
+### **Stop a container**
+```bash
+docker stop taptap-mqtt
+```
+
+### **Restart a container**
+```bash
+docker restart taptap-mqtt
+```
+
+### **Remove a container**
+```bash
+docker rm taptap-mqtt
+```
+
+If it’s running, stop it first:
+```bash
+docker stop taptap-mqtt
+docker rm taptap-mqtt
+```
+
+---
+
+## **Logs & Debugging**
+
+### **View container logs**
+```bash
+docker logs taptap-mqtt
+```
+
+### **Follow logs in real time**
+```bash
+docker logs -f taptap-mqtt
+```
+
+### **Inspect container details**
+```bash
+docker inspect taptap-mqtt
+```
+
+### **Enter a shell inside the container**
+```bash
+docker exec -it taptap-mqtt /bin/sh
+```
+
+---
+
+## **Volumes & Bind Mounts**
+
+### **List Docker volumes**
+```bash
+docker volume ls
+```
+
+### **Inspect a volume**
+```bash
+docker volume inspect <volume-name>
+```
+
+*(TapTap‑MQTT uses bind mounts, not named volumes, but these commands are still useful.)*
+
+---
+
+## **Docker Compose**
+
+### **Start services**
+```bash
+docker compose up -d
+```
+
+### **Stop services**
+```bash
+docker compose down
+```
+
+### **View compose logs**
+```bash
+docker compose logs -f
+```
+
+---
