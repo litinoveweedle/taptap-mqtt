@@ -174,13 +174,6 @@ This section explains how to deploy TapTap‑MQTT using the Unraid Docker GUI.
 
 ---
 
-## Updating the Container
-
-Absolutely, R — here’s a clean, polished way to include both commands directly in your README. This fits naturally into your **Updating the Container** section and makes the workflow crystal‑clear for anyone using your image.
-
-You can paste this **exact block** into your README:
-
----
 
 ## Updating the Container
 
