@@ -48,13 +48,18 @@ taptap-mqtt/
 ```
 
 ### Persistent Data Files
-TapTap maintains a small JSON file (`taptap.json`) that stores previously detected module serial numbers. This allows TapTap to initialize the pv panel topology much faster on restart. This file needs to be mounted outside of the docker container for persistent storage so that it remains intact when you recreate docker containers. 
+TapTap maintains a small JSON file (`taptap.json`) that stores previously detected module serial numbers. This allows TapTap to initialize the PV panel topology much faster on restart.  
+This file **must be mounted outside the Docker container** so it persists when the container is recreated.
 
-For the file to be persistent, update `config.ini` with this line: 
+Update your `config.ini` with:
 
-```STATE_FILE = /app/taptap.json```
+```
+STATE_FILE = /app/taptap.json
+```
 
-The `config.ini` file will also be mounted outside of the docker so it is persistent as well. 
+The file will be created automatically by the python program, you don't need to create it.   
+
+Your `config.ini` will also be mounted outside the container so it remains persistent.
 
 ---
 
@@ -65,7 +70,7 @@ From the folder containing the Dockerfile, run:
 ```bash
 docker build -t taptap-mqtt:latest .
 ```
-Depending on your user's privilages, you may have to run the docker commands with `sudo` if you don't have root privilages. 
+Depending on your user's privileges, you may have to run the docker commands with `sudo` if you don't have root privileges. 
 
 This builds a Docker image named `taptap-mqtt` with the tag `latest`, using the files in the current directory.
 
