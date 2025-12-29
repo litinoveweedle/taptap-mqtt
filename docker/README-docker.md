@@ -106,6 +106,12 @@ To view logs:
 docker logs -f taptap-mqtt
 ```
 
+Set the logging level to debug in the `config.ini` to see all the output from the container.
+
+```LOG_LEVEL = debug```
+
+ When it's all working, set it to one of the other levels.
+
 ---
 
 ## Running with Docker Compose
