@@ -47,6 +47,15 @@ taptap-mqtt/
 ├── docker-compose.yml    (optional, if using docker-compose)
 ```
 
+### Persistent Data Files
+TapTap maintains a small JSON file (`taptap.json`) that stores previously detected module serial numbers. This allows TapTap to initialize the pv panel topology much faster on restart. This file needs to be mounted outside of the docker container for persistent storage so that it remains intact when you recreate docker containers. 
+
+For the file to be persistent, update `config.ini` with this line: 
+
+```STATE_FILE = /app/taptap.json```
+
+The `config.ini` file will also be mounted outside of the docker so it is persistent as well. 
+
 ---
 
 ### Build the Image
@@ -81,6 +90,7 @@ docker run -d --name taptap-mqtt \
   --restart unless-stopped \
   --cap-add=SYS_RESOURCE \
   -v ~/taptap-mqtt/config.ini:/app/config.ini:ro \
+  -v ~/taptap-mqtt/taptap.json:/app/taptap.json \
   --network bridge \
   taptap-mqtt:latest
 ```
@@ -107,6 +117,7 @@ services:
       - SYS_RESOURCE
     volumes:
       - ./config.ini:/app/config.ini:ro
+      - ./taptap.json:/app/taptap.json
 ```
 
 Or create it automatically:
@@ -122,6 +133,7 @@ services:
       - SYS_RESOURCE
     volumes:
       - ./config.ini:/app/config.ini:ro
+      - ./taptap.json:/app/taptap.json
 EOF
 ```
 
@@ -158,6 +170,10 @@ This section explains how to deploy TapTap‑MQTT using the Unraid Docker GUI.
    - Host: `/mnt/user/appdata/taptap-mqtt/config.ini`  
      Container: `/app/config.ini`  
      Mode: `Read Only`
+
+   - Host: `/mnt/user/appdata/taptap-mqtt/taptap.json`  
+     Container: `/app/taptap.json`  
+     Mode: `Read/Write` 
 
 6. Add Extra Parameters:  
    `--cap-add=SYS_RESOURCE`
