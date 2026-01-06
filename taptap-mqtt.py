@@ -671,6 +671,9 @@ def taptap_tele() -> None:
                 )
                 state["stats"][string_name]["state_online"] = "online"
 
+        else:
+            logging("debug", f"No nodes reported online during last cycle")
+
         time_up = uptime.uptime()
         result = "%01d" % int(time_up / 86400)
         time_up = time_up % 86400
@@ -965,7 +968,7 @@ def taptap_power_event(data: dict, now: float) -> bool:
                     return False
                 data["timestamp"] = tmstp.isoformat()
                 data["tmstp"] = tmstp.timestamp()
-            except Exception:
+            except:
                 logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
                 logging("debug", data)
                 return False
@@ -1591,20 +1594,20 @@ def taptap_discovery_legacy_sensor(
     }
 
     if sensors[sensor]["precision"] is not None:
-        discovery[key]["suggested_display_precision"] = sensors[sensor][
+        discovery[key][sensor_id]["suggested_display_precision"] = sensors[sensor][
             "precision"
         ]
 
     if sensors[sensor]["state_class"] and sensor in config["HA"][
         mode.upper() + "_SENSORS_RECORDER"
     ].split(","):
-        discovery[key]["state_class"] = sensors[sensor]["state_class"]
+        discovery[key][sensor_id]["state_class"] = sensors[sensor]["state_class"]
 
     if (
         str_to_bool(config["HA"][mode.upper() + "_AVAILABILITY_ONLINE"])
         and sensors[sensor]["avail_online_key"]
     ):
-        discovery[key]["availability"].append(
+        discovery[key][sensor_id]["availability"].append(
             {
                 "topic": state_topic,
                 "value_template": "{{ value_json."
@@ -1619,7 +1622,7 @@ def taptap_discovery_legacy_sensor(
         str_to_bool(config["HA"][mode.upper() + "_AVAILABILITY_IDENTIFIED"])
         and sensors[sensor]["avail_ident_key"]
     ):
-        discovery[key]["availability"].append(
+        discovery[key][sensor_id]["availability"].append(
             {
                 "topic": state_topic,
                 "value_template": "{{ value_json."
