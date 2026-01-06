@@ -462,7 +462,7 @@ def taptap_tele() -> None:
                 logging("debug", "Successfully processed infrastructure event")
                 logging("debug", data)
                 logging("info", "Nodes were enumerated, flushing message cache")
-                cache = {node: {} for node in nodes.keys()}
+                cache = {node_name: {} for node_name in nodes.keys()}
         elif data["event_type"] == "power_report":
             logging("debug", "Received power_report event")
             logging("debug", data)
@@ -485,7 +485,7 @@ def taptap_tele() -> None:
         # Reset statistic tele
         reset_stats_tele(dt)
 
-        for node_name in nodes.keys():
+        for node_name in nodes:
             if nodes[node_name]["node_id"] is None:
                 # Not yet received any message from this node
                 logging("debug", f"Node {node_name} not yet seen on the bus")
@@ -502,7 +502,7 @@ def taptap_tele() -> None:
             else:
                 state["nodes"][node_name]["state_identified"] = "offline"
 
-            if node_name in cache.keys() and len(cache[node_name]):
+            if node_name in cache and len(cache[node_name]):
                 # Node is online - update sensor values
                 if state["nodes"][node_name]["state_online"] == "offline":
                     logging("info", f"Node {node_name} came online")
@@ -630,7 +630,7 @@ def taptap_tele() -> None:
 
                 state["nodes"][node_name]["state_online"] = "offline"
 
-        for string_name in ["overall"] + list(strings.keys()):
+        for string_name in ["overall"] + list(strings):
             # Set identified state
             if state["stats"][string_name]["nodes_identified"]["count"] == 0:
                 logging("debug", f"No nodes were find identified during last cycle")
@@ -714,10 +714,10 @@ def tele_init() -> None:
     # Init state struct
     state.update({"time": 0, "uptime": 0, "nodes": {}, "stats": {}})
     # Init cache struct
-    cache = {node: {} for node in nodes.keys()}
+    cache = {node_name: {} for node_name in nodes}
 
     # Init Nodes values
-    for node_name in nodes.keys():
+    for node_name in nodes:
         reset_node_tele(node_name, dt)
 
     # Init Stats values
@@ -1253,7 +1253,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
         return True
     else:
         # need to find unused node name and assign it to node_id temporarily
-        for node_name in nodes.keys():
+        for node_name in nodes:
             if nodes[node_name]["node_id"] is None:
                 nodes[node_name]["node_id"] = node_id
                 nodes_ids[node_id] = node_name
@@ -1262,7 +1262,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
                     f"Temporary enumerated node id: {node_id} to node name: {node_name}",
                 )
                 if (
-                    gateway_id in gateways.keys()
+                    gateway_id in gateways
                     and gateways[gateway_id]["address"]
                     != nodes[node_name]["gateway_address"]
                 ):
@@ -1354,7 +1354,7 @@ def taptap_discovery_device(mode: int) -> None:
                     )
 
         # Node sensors components
-        for node_name in nodes.keys():
+        for node_name in nodes:
             for sensor in sensors.keys():
                 if not sensors[sensor]["type_node"]:
                     continue
@@ -1523,7 +1523,7 @@ def taptap_discovery_legacy(mode: int) -> None:
                     )
 
         # Node sensors components
-        for node_name in nodes.keys():
+        for node_name in nodes:
             for sensor in sensors.keys():
                 if not sensors[sensor]["type_node"]:
                     continue
