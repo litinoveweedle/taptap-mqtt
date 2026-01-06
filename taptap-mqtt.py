@@ -380,7 +380,7 @@ def taptap_conf() -> None:
                 else:
                     strings[node_string] += 1
 
-            if node_name in nodes.keys():
+            if node_name in nodes:
                 logging("error", f"Duplicate node name: {node_name}!")
                 exit(1)
 
@@ -405,9 +405,9 @@ def taptap_conf() -> None:
             logging("error", f"Invalid MODULES_SERIALS entry: {entry}")
             exit(1)
 
-    if len(strings.keys()) == 0:
+    if len(strings) == 0:
         logging("debug", f"Strings are not configured, strings statistics are inactive")
-    elif len(strings.keys()) == 1:
+    elif len(strings) == 1:
         logging(
             "warning",
             f"Only single string is configured, strings statistics are inactive.",
@@ -416,7 +416,7 @@ def taptap_conf() -> None:
     else:
         logging(
             "debug",
-            f"{len(strings.keys())} strings are is configured, strings statistics are enabled.",
+            f"{len(strings)} strings are is configured, strings statistics are enabled.",
         )
 
 
@@ -449,7 +449,7 @@ def taptap_tele() -> None:
             logging("debug", line)
             continue
 
-        if "event_type" not in data.keys():
+        if "event_type" not in data:
             logging("warning", "Unknown taptap event type")
             logging("debug", data)
             continue
@@ -750,7 +750,7 @@ def reset_stats_tele(dt: dict) -> None:
     if "overall" not in state["stats"]:
         state["stats"]["overall"] = {}
     if strings:
-        for string_name in strings.keys():
+        for string_name in strings:
             if string_name not in state["stats"]:
                 state["stats"][string_name] = {}
             for sensor in sensors.keys():
@@ -764,7 +764,7 @@ def reset_stats_tele(dt: dict) -> None:
         for sensor in sensors.keys():
             for type in sensors[sensor]["type_string"]:
                 reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
-    state["stats"]["overall"]["nodes_total"]["count"] = len(nodes.keys())
+    state["stats"]["overall"]["nodes_total"]["count"] = len(nodes)
 
 
 def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
@@ -892,7 +892,7 @@ def taptap_power_event(data: dict, now: float) -> bool:
         "rssi",
         "timestamp",
     ]:
-        if name not in data.keys():
+        if name not in data:
             logging("warning", f"Missing required key: '{name}'")
             logging("debug", data)
             return False
@@ -1027,7 +1027,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                 logging("debug", data)
                 continue
             elif "address" in data["gateways"][gateway_id]:
-                if gateway_id not in gateways.keys():
+                if gateway_id not in gateways:
                     gateways[gateway_id] = {"address": "", "version": ""}
                 if re.match(
                     r"^([0-9A-Fa-f]{2}[:-]){7}([0-9A-Fa-f]{2})$",
@@ -1041,7 +1041,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                         "address"
                     ]
             elif "version" in data["gateways"][gateway_id]:
-                if gateway_id not in gateways.keys():
+                if gateway_id not in gateways:
                     gateways[gateway_id] = {"address": "", "version": ""}
                 if data["gateways"][gateway_id]["version"] != "":
                     logging(
@@ -1052,7 +1052,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                         "version"
                     ]
             else:
-                if gateway_id not in gateways.keys():
+                if gateway_id not in gateways:
                     gateways[gateway_id] = {"address": "", "version": ""}
                 logging(
                     "warning",
@@ -1088,7 +1088,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                     f"Invalid nodes id in the infrastructure event: '{node_id}'",
                 )
                 logging("debug", data)
-            elif "barcode" not in data["nodes"][gateway_id][node_id].keys():
+            elif "barcode" not in data["nodes"][gateway_id][node_id]:
                 logging(
                     "warning",
                     f"Missing barcode in the infrastructure event for node id: '{node_id}'",
@@ -1234,7 +1234,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
     global nodes
     global nodes_ids
 
-    if node_id in nodes_ids.keys():
+    if node_id in nodes_ids:
         # node was already discovered
         node_name = nodes_ids[node_id]
         logging(
@@ -1242,7 +1242,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
             f"Node id: {node_id} already enumerated to node name: '{node_name}' and serial: '{nodes[node_name]['node_serial']}'",
         )
         if (
-            gateway_id in gateways.keys()
+            gateway_id in gateways
             and gateways[gateway_id]["address"] != nodes[node_name]["gateway_address"]
         ):
             nodes[node_name]["gateway_address"] = gateways[gateway_id]["address"]
