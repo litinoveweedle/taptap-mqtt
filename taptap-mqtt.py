@@ -313,12 +313,15 @@ if (
 nodes = {}
 # Dict of nodes ids -> node names
 nodes_ids = {}
-# Dict string_name -> nodes cout
+# Dict string_name -> nodes count
 strings = {}
-# Dict gateway id -> getway address
+# Dict gateway id -> gateway address
 gateways = {}
 # Bool if all nodes have serials configured
 nodes_configured = True
+
+# State telemetry data
+state = {}
 
 # Power Reports cache
 cache = {}
@@ -348,7 +351,6 @@ def taptap_conf() -> None:
     global nodes
     global strings
     global nodes_configured
-    global cache
     nodes_serials = set()
 
     entries = list(map(str.strip, config["TAPTAP"]["MODULES"].split(",")))
@@ -374,17 +376,17 @@ def taptap_conf() -> None:
 
                 node_name = node_string + node_name
                 if node_string not in strings:
-                    strings[node_string] = 0
+                    strings[node_string] = 1
                 else:
                     strings[node_string] += 1
 
             if node_name in nodes.keys():
-                logging("error", f"Duplicite node name: {node_name}!")
+                logging("error", f"Duplicate node name: {node_name}!")
                 exit(1)
 
             if node_serial is not None:
                 if node_serial in nodes_serials:
-                    logging("error", f"Duplicite node serial: {node_serial}!")
+                    logging("error", f"Duplicate node serial: {node_serial}!")
                     exit(1)
                 nodes_serials.add(node_serial)
             else:
@@ -416,9 +418,6 @@ def taptap_conf() -> None:
             "debug",
             f"{len(strings.keys())} strings are is configured, strings statistics are enabled.",
         )
-
-    # Init cache struct
-    cache = dict.fromkeys(nodes.keys(), {})
 
 
 def taptap_tele() -> None:
@@ -463,7 +462,7 @@ def taptap_tele() -> None:
                 logging("debug", "Successfully processed infrastructure event")
                 logging("debug", data)
                 logging("info", "Nodes were enumerated, flushing message cache")
-                cache = dict.fromkeys(nodes.keys(), {})
+                cache = {node: {} for node in nodes.keys()}
         elif data["event_type"] == "power_report":
             logging("debug", "Received power_report event")
             logging("debug", data)
@@ -483,50 +482,17 @@ def taptap_tele() -> None:
             "now": datetime.fromtimestamp(now, tz.tzlocal()),
         }
 
-        # Reset statistic values
-        if "overall" not in state["stats"]:
-            state["stats"]["overall"] = {}
-        if strings:
-            for string_name in strings.keys():
-                if string_name not in state["stats"]:
-                    state["stats"][string_name] = {}
-                for sensor in sensors.keys():
-                    for type in sensors[sensor]["type_string"]:
-                        reset_stat_sensor(sensor, type, dt, state["stats"][string_name])
-                state["stats"][string_name]["nodes_total"]["count"] = strings[
-                    string_name
-                ]
-            for sensor in sensors.keys():
-                for type in sensors[sensor]["type_stat"]:
-                    reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
-        else:
-            for sensor in sensors.keys():
-                for type in sensors[sensor]["type_string"]:
-                    reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
-        state["stats"]["overall"]["nodes_total"]["count"] = len(nodes.keys())
+        # Reset statistic tele
+        reset_stats_tele(dt)
 
         for node_name in nodes.keys():
-            if node_name not in state["nodes"]:
-                # Node was not yet seen on the bus, need to init its state topic
-                state["nodes"][node_name] = {
-                    "state_online": "offline",
-                    "state_init": "offline",
-                    "tmstp": 0,
-                }
-            for sensor in sensors.keys():
-                if sensors[sensor]["type_node"]:
-                    type = list(sensors[sensor]["type_node"])[0]
-                    reset_node_sensor(sensor, type, dt, state["nodes"][node_name])
-
             if nodes[node_name]["node_id"] is None:
-                # not yet received any message from this node
+                # Not yet received any message from this node
                 logging("debug", f"Node {node_name} not yet seen on the bus")
+                reset_node_tele(node_name, dt)
                 continue
-
-            node_id = nodes[node_name]["node_id"]
-
-            # Set identified state
-            if nodes[node_name]["node_serial"] is not None:
+            elif nodes[node_name]["node_serial"] is not None:
+                # Set identified state
                 state["nodes"][node_name]["state_identified"] = "online"
                 state["stats"]["overall"]["nodes_identified"]["count"] += 1
                 if strings and nodes[node_name]["string_name"] is not None:
@@ -537,7 +503,7 @@ def taptap_tele() -> None:
                 state["nodes"][node_name]["state_identified"] = "offline"
 
             if node_name in cache.keys() and len(cache[node_name]):
-                # Node is online - populate state struct
+                # Node is online - update sensor values
                 if state["nodes"][node_name]["state_online"] == "offline":
                     logging("info", f"Node {node_name} came online")
                 else:
@@ -551,14 +517,12 @@ def taptap_tele() -> None:
 
                 last = max(cache[node_name].keys())
 
-                # Update sensors
+                # Update node sensors
                 for sensor in sensors.keys():
+                    if not sensors[sensor]["type_node"]:
+                        continue
                     value = None
-                    type = (
-                        list(sensors[sensor]["type_node"])[0]
-                        if sensors[sensor]["type_node"]
-                        else None
-                    )
+                    type = list(sensors[sensor]["type_node"])[0]
                     if type == "node":
                         value = nodes[node_name][sensors[sensor]["type_node"]["node"]]
                         state["nodes"][node_name][sensor] = value
@@ -573,7 +537,10 @@ def taptap_tele() -> None:
                             prev_tmstp = tmstp
                         if "scale" in sensors[sensor]:
                             value *= sensors[sensor]["scale"]
-                        state["nodes"][node_name][sensor] += value
+                        if reset_sensor_integral(type, dt):
+                            state["nodes"][node_name][sensor] = value
+                        else:
+                            state["nodes"][node_name][sensor] += value
                     elif type == "value":
                         if sensors[sensor]["unit"]:
                             # Calculate average for data smoothing
@@ -591,28 +558,9 @@ def taptap_tele() -> None:
                                 sensors[sensor]["type_node"][type]
                             ]
                         state["nodes"][node_name][sensor] = value
-                    else:
-                        continue
 
-                    # Update stat sensor
-                    if strings and nodes[node_name]["string_name"] is not None:
-                        for type in sensors[sensor]["type_string"]:
-                            update_stat_sensor(
-                                sensor,
-                                type,
-                                state["stats"][nodes[node_name]["string_name"]],
-                                value,
-                            )
-
-                        for type in sensors[sensor]["type_stat"]:
-                            update_stat_sensor(
-                                sensor, type, state["stats"]["overall"], value
-                            )
-                    else:
-                        for type in sensors[sensor]["type_string"]:
-                            update_stat_sensor(
-                                sensor, type, state["stats"]["overall"], value
-                            )
+                    # update statistic sensors
+                    update_stats_tele(sensor, node_name, value)
 
                 state["nodes"][node_name].update(
                     {
@@ -627,39 +575,60 @@ def taptap_tele() -> None:
                 cache[node_name] = {}
 
             elif (
-                state["nodes"][node_name]["tmstp"] + int(config["TAPTAP"]["TIMEOUT"])
-                < now
-                and state["nodes"][node_name]["state_online"] == "online"
+                state["nodes"][node_name]["state_online"] == "online"
+                and state["nodes"][node_name]["tmstp"]
+                + int(config["TAPTAP"]["TIMEOUT"])
+                >= now
             ):
-                # Node went recently offline - reset values
-                logging("info", f"Node {node_name} went offline")
-                state["nodes"][node_name].update(
-                    {
-                        "node_name": nodes[node_name]["node_name"],
-                        "node_serial": nodes[node_name]["node_serial"],
-                        "gateway_address": nodes[node_name]["gateway_address"],
-                        "state_online": "offline",
-                    }
-                )
+                # Node is online but no new data were received - keep last valid sensor values
+                logging("info", f"Node {node_name} didn't report new data")
+                state["stats"]["overall"]["nodes_online"]["count"] += 1
+                if strings and nodes[node_name]["string_name"] is not None:
+                    state["stats"][nodes[node_name]["string_name"]]["nodes_online"][
+                        "count"
+                    ] += 1
+
                 for sensor in sensors.keys():
-                    type = (
-                        list(sensors[sensor]["type_node"])[0]
-                        if sensors[sensor]["type_node"]
-                        else None
-                    )
-                    if sensors[sensor]["avail_online_key"] == "state_init":
+                    if not sensors[sensor]["type_node"]:
                         continue
-                    if type == "value":
-                        state["nodes"][node_name][sensor] = None
+                    type = list(sensors[sensor]["type_node"])[0]
+                    if type in ["daily", "weekly", "monthly", "yearly"]:
+                        # Don't increment integral sensors without data
+                        value = 0
+                        # Reset integral sensors if needed
+                        if reset_sensor_integral(type, dt):
+                            state["nodes"][node_name][sensor] = 0
+                    else:
+                        value = state["nodes"][node_name][sensor]
+
+                    # update statistic sensors
+                    update_stats_tele(sensor, node_name, value)
+
+            elif state["nodes"][node_name]["state_online"] == "online":
+                # Node went recently offline - reset sensor values, keep node sensors updated
+                logging("info", f"Node {node_name} went offline")
+                for sensor in sensors.keys():
+                    if not sensors[sensor]["type_node"]:
+                        continue
+                    type = list(sensors[sensor]["type_node"])[0]
+                    reset_node_sensor(
+                        sensor, type, dt, state["nodes"][node_name], nodes[node_name]
+                    )
+
+                state["nodes"][node_name]["state_online"] = "offline"
+
             else:
-                # update node id, name and serial
-                state["nodes"][node_name].update(
-                    {
-                        "node_name": nodes[node_name]["node_name"],
-                        "node_serial": nodes[node_name]["node_serial"],
-                        "gateway_address": nodes[node_name]["gateway_address"],
-                    }
-                )
+                # Node is offline - reset sensor values, keep node sensors updated
+                logging("debug", f"Node {node_name} is offline")
+                for sensor in sensors.keys():
+                    if not sensors[sensor]["type_node"]:
+                        continue
+                    type = list(sensors[sensor]["type_node"])[0]
+                    reset_node_sensor(
+                        sensor, type, dt, state["nodes"][node_name], nodes[node_name]
+                    )
+
+                state["nodes"][node_name]["state_online"] = "offline"
 
         for string_name in ["overall"] + list(strings.keys()):
             # Set identified state
@@ -733,6 +702,74 @@ def taptap_tele() -> None:
             raise MqttError("MQTT not connected!")
 
 
+def tele_init() -> None:
+    logging("debug", "Into tele_init")
+    global state
+    global cache
+    global last_tele
+
+    last_tele = 0
+    dt = {
+        "last": datetime.fromtimestamp(last_tele, tz.tzlocal()),
+        "now": datetime.fromtimestamp(time.time(), tz.tzlocal()),
+    }
+
+    # Init state struct
+    state.update({"time": 0, "uptime": 0, "nodes": {}, "stats": {}})
+    # Init cache struct
+    cache = {node: {} for node in nodes.keys()}
+
+    # Init Nodes values
+    for node_name in nodes.keys():
+        reset_node_tele(node_name, dt)
+
+    # Init Stats values
+    reset_stats_tele(dt)
+
+
+def reset_node_tele(node_name: str, dt: dict) -> None:
+    logging("debug", "Into reset_node_tele")
+    global state
+
+    # Init Node values
+    state["nodes"][node_name] = {
+        "state_online": "offline",
+        "state_init": "offline",
+        "tmstp": 0,
+    }
+    for sensor in sensors.keys():
+        if sensors[sensor]["type_node"]:
+            type = list(sensors[sensor]["type_node"])[0]
+            reset_node_sensor(
+                sensor, type, dt, state["nodes"][node_name], nodes[node_name]
+            )
+
+
+def reset_stats_tele(dt: dict) -> None:
+    logging("debug", "Into reset_stats_tele")
+    global state
+
+    # Init Stats values
+    if "overall" not in state["stats"]:
+        state["stats"]["overall"] = {}
+    if strings:
+        for string_name in strings.keys():
+            if string_name not in state["stats"]:
+                state["stats"][string_name] = {}
+            for sensor in sensors.keys():
+                for type in sensors[sensor]["type_string"]:
+                    reset_stat_sensor(sensor, type, dt, state["stats"][string_name])
+            state["stats"][string_name]["nodes_total"]["count"] = strings[string_name]
+        for sensor in sensors.keys():
+            for type in sensors[sensor]["type_stat"]:
+                reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
+    else:
+        for sensor in sensors.keys():
+            for type in sensors[sensor]["type_string"]:
+                reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
+    state["stats"]["overall"]["nodes_total"]["count"] = len(nodes.keys())
+
+
 def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
     logging("debug", "Into reset_stat_sensor")
 
@@ -746,6 +783,35 @@ def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) ->
         state_data[sensor][type] = 0
     else:
         state_data[sensor][type] = None
+
+
+def update_stats_tele(sensor: str, node_name: str, value) -> None:
+    logging("debug", "Into update_stats_tele")
+
+    if strings and nodes[node_name]["string_name"] is not None:
+        for type in sensors[sensor]["type_string"]:
+            update_stat_sensor(
+                sensor,
+                type,
+                state["stats"][nodes[node_name]["string_name"]],
+                value,
+            )
+
+        for type in sensors[sensor]["type_stat"]:
+            update_stat_sensor(
+                sensor,
+                type,
+                state["stats"]["overall"],
+                value,
+            )
+    else:
+        for type in sensors[sensor]["type_string"]:
+            update_stat_sensor(
+                sensor,
+                type,
+                state["stats"]["overall"],
+                value,
+            )
 
 
 def update_stat_sensor(sensor: str, type: str, state_data: dict, value) -> None:
@@ -765,6 +831,8 @@ def update_stat_sensor(sensor: str, type: str, state_data: dict, value) -> None:
     elif type == "avg":
         if state_data[sensor][type] is None:
             state_data[sensor][type] = value
+        elif state_data["nodes_online"]["count"] == 0:
+            state_data[sensor][type] = 0
         else:
             state_data[sensor][type] += (value - state_data[sensor][type]) / (
                 state_data["nodes_online"]["count"]
@@ -773,10 +841,14 @@ def update_stat_sensor(sensor: str, type: str, state_data: dict, value) -> None:
         state_data[sensor][type] += value
 
 
-def reset_node_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
+def reset_node_sensor(
+    sensor: str, type: str, dt: datetime, state_data: dict, defaults: dict
+) -> None:
     logging("debug", "Into reset_node_sensor")
 
-    if sensors[sensor]["avail_online_key"] == "state_init":
+    if sensor in defaults:
+        state_data[sensor] = defaults[sensor]
+    elif sensors[sensor]["avail_online_key"] == "state_init":
         if sensor not in state_data:
             state_data[sensor] = None
     elif sensor not in state_data:
@@ -1787,10 +1859,10 @@ taptap = None
 restart = 0
 while True:
     try:
-        # Init counters
-        last_tele = 0
         # Init modules conf
         taptap_conf()
+        # Init tele structure
+        tele_init()
         # Create mqtt client
         if not client:
             # Init mqtt
