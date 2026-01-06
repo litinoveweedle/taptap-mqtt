@@ -283,7 +283,7 @@ for section in config_validation:
             param2 = param1[:-1]
             optional = True
 
-        if not param2 in config[section] or config[section][param2] is None:
+        if param2 not in config[section]:
             logging("error", "Missing config parameter: " + param2)
             exit(1)
         elif config_validation[section][param1] and not re.match(
@@ -1008,7 +1008,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
     enumerated = False
     pattern_id = re.compile(r"^\d+$")
 
-    if not "gateways" in data.keys() and isinstance(data["nodes"], dict):
+    if not ( "gateways" in data.keys() and isinstance(data["gateways"], dict) ):
         logging("warning", f"Invalid 'gateways' key in infrastructure event")
         logging("debug", data)
     else:
@@ -1027,7 +1027,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                 logging("debug", data)
                 continue
             elif "address" in data["gateways"][gateway_id]:
-                if not gateway_id in gateways.keys():
+                if gateway_id not in gateways.keys():
                     gateways[gateway_id] = {"address": "", "version": ""}
                 if re.match(
                     r"^([0-9A-Fa-f]{2}[:-]){7}([0-9A-Fa-f]{2})$",
@@ -1041,7 +1041,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                         "address"
                     ]
             elif "version" in data["gateways"][gateway_id]:
-                if not gateway_id in gateways.keys():
+                if gateway_id not in gateways.keys():
                     gateways[gateway_id] = {"address": "", "version": ""}
                 if data["gateways"][gateway_id]["version"] != "":
                     logging(
@@ -1052,7 +1052,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                         "version"
                     ]
             else:
-                if not gateway_id in gateways.keys():
+                if gateway_id not in gateways.keys():
                     gateways[gateway_id] = {"address": "", "version": ""}
                 logging(
                     "warning",
@@ -1064,7 +1064,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
         logging("debug", f"Processes gateways data in the infrastructure event")
         logging("debug", gateways)
 
-    if not "nodes" in data.keys() and isinstance(data["nodes"], dict):
+    if not ( "nodes" in data.keys() and isinstance(data["nodes"], dict) ):
         logging("warning", f"Invalid 'nodes' key in infrastructure event")
         logging("debug", data)
         return enumerated
@@ -1204,7 +1204,6 @@ def taptap_nodes_conf(level: str) -> None:
     for node_name in sorted(nodes.keys()):
         if nodes[node_name]["node_serial"] is not None:
             if nodes[node_name]["string_name"] is not None:
-                node_name
                 nodes_conf.append(
                     nodes[node_name]["string_name"]
                     + ":"
@@ -1217,7 +1216,7 @@ def taptap_nodes_conf(level: str) -> None:
                     ":" + node_name + ":" + nodes[node_name]["node_serial"]
                 )
         elif nodes[node_name]["string_name"] is not None:
-            nodes_conf.append(nodes[node_name]["string_name"] + ":" + node_name + ":")
+            nodes_conf.append(nodes[node_name]["string_name"] + ":" + nodes[node_name]["node_name_short"] + ":")
         else:
             nodes_conf.append(":" + node_name + ":")
     logging(
