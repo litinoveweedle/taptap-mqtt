@@ -343,7 +343,7 @@ attributes_topic = (
     + "/attributes"
 )
 
-logging("debug", f"Configured nodes: {nodes.keys()}")
+logging("debug", f"Configured nodes: {nodes}")
 
 
 def taptap_conf() -> None:
@@ -462,7 +462,7 @@ def taptap_tele() -> None:
                 logging("debug", "Successfully processed infrastructure event")
                 logging("debug", data)
                 logging("info", "Nodes were enumerated, flushing message cache")
-                cache = {node_name: {} for node_name in nodes.keys()}
+                cache = {node_name: {} for node_name in nodes}
         elif data["event_type"] == "power_report":
             logging("debug", "Received power_report event")
             logging("debug", data)
@@ -515,10 +515,10 @@ def taptap_tele() -> None:
                         "count"
                     ] += 1
 
-                last = max(cache[node_name].keys())
+                last = max(cache[node_name])
 
                 # Update node sensors
-                for sensor in sensors.keys():
+                for sensor in sensors:
                     if not sensors[sensor]["type_node"]:
                         continue
                     value = None
@@ -529,7 +529,7 @@ def taptap_tele() -> None:
                     elif type in ["daily", "weekly", "monthly", "yearly"]:
                         prev_tmstp = state["nodes"][node_name]["tmstp"]
                         value = 0
-                        for tmstp in cache[node_name].keys():
+                        for tmstp in cache[node_name]:
                             if prev_tmstp + int(config["TAPTAP"]["UPDATE"]) + 1 > tmstp:
                                 value += cache[node_name][tmstp][
                                     sensors[sensor]["type_node"][type]
@@ -545,7 +545,7 @@ def taptap_tele() -> None:
                         if sensors[sensor]["unit"]:
                             # Calculate average for data smoothing
                             value = 0
-                            for tmstp in cache[node_name].keys():
+                            for tmstp in cache[node_name]:
                                 value += cache[node_name][tmstp][
                                     sensors[sensor]["type_node"][type]
                                 ]
@@ -588,7 +588,7 @@ def taptap_tele() -> None:
                         "count"
                     ] += 1
 
-                for sensor in sensors.keys():
+                for sensor in sensors:
                     if not sensors[sensor]["type_node"]:
                         continue
                     type = list(sensors[sensor]["type_node"])[0]
@@ -607,7 +607,7 @@ def taptap_tele() -> None:
             elif state["nodes"][node_name]["state_online"] == "online":
                 # Node went recently offline - reset sensor values, keep node sensors updated
                 logging("info", f"Node {node_name} went offline")
-                for sensor in sensors.keys():
+                for sensor in sensors:
                     if not sensors[sensor]["type_node"]:
                         continue
                     type = list(sensors[sensor]["type_node"])[0]
@@ -620,7 +620,7 @@ def taptap_tele() -> None:
             else:
                 # Node is offline - reset sensor values, keep node sensors updated
                 logging("debug", f"Node {node_name} is offline")
-                for sensor in sensors.keys():
+                for sensor in sensors:
                     if not sensors[sensor]["type_node"]:
                         continue
                     type = list(sensors[sensor]["type_node"])[0]
@@ -734,7 +734,7 @@ def reset_node_tele(node_name: str, dt: dict) -> None:
         "state_init": "offline",
         "tmstp": 0,
     }
-    for sensor in sensors.keys():
+    for sensor in sensors:
         if sensors[sensor]["type_node"]:
             type = list(sensors[sensor]["type_node"])[0]
             reset_node_sensor(
@@ -753,15 +753,15 @@ def reset_stats_tele(dt: dict) -> None:
         for string_name in strings:
             if string_name not in state["stats"]:
                 state["stats"][string_name] = {}
-            for sensor in sensors.keys():
+            for sensor in sensors:
                 for type in sensors[sensor]["type_string"]:
                     reset_stat_sensor(sensor, type, dt, state["stats"][string_name])
             state["stats"][string_name]["nodes_total"]["count"] = strings[string_name]
-        for sensor in sensors.keys():
+        for sensor in sensors:
             for type in sensors[sensor]["type_stat"]:
                 reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
     else:
-        for sensor in sensors.keys():
+        for sensor in sensors:
             for type in sensors[sensor]["type_string"]:
                 reset_stat_sensor(sensor, type, dt, state["stats"]["overall"])
     state["stats"]["overall"]["nodes_total"]["count"] = len(nodes)
@@ -1008,11 +1008,11 @@ def taptap_infrastructure_event(data: dict) -> bool:
     enumerated = False
     pattern_id = re.compile(r"^\d+$")
 
-    if not ( "gateways" in data.keys() and isinstance(data["gateways"], dict) ):
+    if not ("gateways" in data and isinstance(data["gateways"], dict)):
         logging("warning", f"Invalid 'gateways' key in infrastructure event")
         logging("debug", data)
     else:
-        for gateway_id in data["gateways"].keys():
+        for gateway_id in data["gateways"]:
             if not pattern_id.match(gateway_id):
                 logging(
                     "warning",
@@ -1064,12 +1064,12 @@ def taptap_infrastructure_event(data: dict) -> bool:
         logging("debug", f"Processes gateways data in the infrastructure event")
         logging("debug", gateways)
 
-    if not ( "nodes" in data.keys() and isinstance(data["nodes"], dict) ):
+    if not ("nodes" in data and isinstance(data["nodes"], dict)):
         logging("warning", f"Invalid 'nodes' key in infrastructure event")
         logging("debug", data)
         return enumerated
 
-    for gateway_id in data["nodes"].keys():
+    for gateway_id in data["nodes"]:
         if not pattern_id.match(gateway_id):
             logging(
                 "warning",
@@ -1081,7 +1081,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
             logging("warning", f"Invalid nodes structure in the infrastructure event")
             logging("debug", data)
             continue
-        for node_id in data["nodes"][gateway_id].keys():
+        for node_id in data["nodes"][gateway_id]:
             if not pattern_id.match(node_id):
                 logging(
                     "warning",
@@ -1106,16 +1106,14 @@ def taptap_infrastructure_event(data: dict) -> bool:
                 # If we reach this point, the serial is valid
                 node_serial = data["nodes"][gateway_id][node_id]["barcode"]
                 gateway_address = (
-                    gateways[gateway_id]["address"]
-                    if gateway_id in gateways.keys()
-                    else None
+                    gateways[gateway_id]["address"] if gateway_id in gateways else None
                 )
                 logging(
                     "debug",
                     f"Discovered valid node serial: {node_serial}",
                 )
                 nodes_ids.pop(node_id, None)
-                for node_name in sorted(nodes.keys()):
+                for node_name in sorted(nodes):
                     if nodes[node_name]["node_serial"] == node_serial:
                         if nodes[node_name]["node_id"] != node_id:
                             # discovered new permanent mapping
@@ -1147,7 +1145,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                             }
                         )
                 if node_id not in nodes_ids:
-                    for node_name in sorted(nodes.keys()):
+                    for node_name in sorted(nodes):
                         if nodes[node_name]["node_serial"] is None:
                             # create permanent mapping for unknown serial
                             logging(
@@ -1201,7 +1199,7 @@ def taptap_nodes_conf(level: str) -> None:
         return
 
     nodes_conf = []
-    for node_name in sorted(nodes.keys()):
+    for node_name in sorted(nodes):
         if nodes[node_name]["node_serial"] is not None:
             if nodes[node_name]["string_name"] is not None:
                 nodes_conf.append(
@@ -1216,7 +1214,12 @@ def taptap_nodes_conf(level: str) -> None:
                     ":" + node_name + ":" + nodes[node_name]["node_serial"]
                 )
         elif nodes[node_name]["string_name"] is not None:
-            nodes_conf.append(nodes[node_name]["string_name"] + ":" + nodes[node_name]["node_name_short"] + ":")
+            nodes_conf.append(
+                nodes[node_name]["string_name"]
+                + ":"
+                + nodes[node_name]["node_name_short"]
+                + ":"
+            )
         else:
             nodes_conf.append(":" + node_name + ":")
     logging(
@@ -1320,9 +1323,9 @@ def taptap_discovery_device(mode: int) -> None:
 
         # Statistic sensors components
         discovery["components"] = {}
-        for sensor in sensors.keys():
+        for sensor in sensors:
             if strings:
-                for string_name in strings.keys():
+                for string_name in strings:
                     for type in sensors[sensor]["type_string"]:
                         name = "_".join(["string", string_name, sensor, type])
                         taptap_discovery_device_sensor(
@@ -1355,7 +1358,7 @@ def taptap_discovery_device(mode: int) -> None:
 
         # Node sensors components
         for node_name in nodes:
-            for sensor in sensors.keys():
+            for sensor in sensors:
                 if not sensors[sensor]["type_node"]:
                     continue
                 name = "_".join([node_name, sensor])
@@ -1480,9 +1483,9 @@ def taptap_discovery_legacy(mode: int) -> None:
         }
 
         # Statistic sensors components
-        for sensor in sensors.keys():
+        for sensor in sensors:
             if strings:
-                for string_name in strings.keys():
+                for string_name in strings:
                     for type in sensors[sensor]["type_string"]:
                         name = "_".join(["string", string_name, sensor, type])
                         taptap_discovery_legacy_sensor(
@@ -1524,7 +1527,7 @@ def taptap_discovery_legacy(mode: int) -> None:
 
         # Node sensors components
         for node_name in nodes:
-            for sensor in sensors.keys():
+            for sensor in sensors:
                 if not sensors[sensor]["type_node"]:
                     continue
                 name = "_".join([node_name, sensor])
@@ -1540,7 +1543,7 @@ def taptap_discovery_legacy(mode: int) -> None:
                 )
 
     if len(discovery):
-        for component in discovery.keys():
+        for component in discovery:
             if client and client.is_connected():
                 discovery_topic = (
                     config["HA"]["DISCOVERY_PREFIX"] + "/" + component + "/config"
@@ -1590,9 +1593,7 @@ def taptap_discovery_legacy_sensor(
     }
 
     if sensors[sensor]["precision"] is not None:
-        discovery[key]["suggested_display_precision"] = sensors[sensor][
-            "precision"
-        ]
+        discovery[key]["suggested_display_precision"] = sensors[sensor]["precision"]
 
     if sensors[sensor]["state_class"] and sensor in config["HA"][
         mode.upper() + "_SENSORS_RECORDER"
