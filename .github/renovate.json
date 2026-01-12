@@ -1,0 +1,14 @@
+{
+  "extends": ["config:recommended"],
+  "regexManagers": [
+    {
+      "fileMatch": ["^\\.github/workflows/ghcr-build\\.yml$"],
+      "matchStrings": [
+        "# renovate: datasource=github-releases depName=taptap packageName=(?<packageName>litinoveweedle/taptap).*?\\n\\s*TAPTAP_VERSION:\\s*\"(?<currentValue>[^\"]+)\"",
+        "# renovate: datasource=github-releases depName=taptap-mqtt packageName=(?<packageName>litinoveweedle/taptap-mqtt).*?\\n\\s*TAPTAP_MQTT_VERSION:\\s*\"(?<currentValue>[^\"]+)\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+<?xml version="1.0"?>
+<!--
+  ------------------------------------------------------------
+  TapTap-MQTT Unraid Template
+
+  HOW TO USE:
+  1. Create the required appdata folders:
+       mkdir -p /mnt/user/appdata/taptap-mqtt/config
+       mkdir -p /mnt/user/appdata/taptap-mqtt/data
+
+  2. Save this file as:
+       /boot/config/plugins/dockerMan/templates-user/my-taptap-mqtt.xml
+
+  3. In Unraid:
+       Docker -> Add Container -> Template dropdown -> my-taptap-mqtt
+
+  4. Review settings and click Apply.
+  ------------------------------------------------------------
+-->
+
+<Container>
+  <Name>taptap-mqtt</Name>
+  <Repository>ghcr.io/godel00/taptap-mqtt-docker:latest</Repository>
+  <Registry>https://github.com/godel00/taptap-mqtt-docker</Registry>
+  <Network>bridge</Network>
+  <MyIP></MyIP>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/godel00/taptap-mqtt-docker</Support>
+  <Project>https://github.com/litinoveweedle/taptap-mqtt</Project>
+  <Overview>Docker implementation of Tigo CCA Tap to MQTT bridge to get data from Tigo optimizers locally to Home Assistant.</Overview>
+  <Category>HomeAutomation:Tools</Category>
+
+  <Config Name="Config Directory" Target="/app/config" Default="" Mode="rw" Description="Path to persistent config directory" Type="Path">
+    /mnt/user/appdata/taptap-mqtt/config
+  </Config>
+
+  <Config Name="Data Directory" Target="/app/data" Default="" Mode="rw" Description="Path to persistent data directory" Type="Path">
+    /mnt/user/appdata/taptap-mqtt/data
+  </Config>
+
+  <Config Name="Capability" Target="SYS_RESOURCE" Default="" Mode="" Description="Required capability for TapTap binary" Type="Device"></Config>
+</Container>

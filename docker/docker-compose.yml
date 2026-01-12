@@ -1,0 +1,37 @@
+# ------------------------------------------------------------
+# TapTap-MQTT Docker Compose
+#
+# HOW TO USE:
+#  Step 1. Create a folder for this project, for example:
+#       mkdir taptap-mqtt
+#       cd taptap-mqtt
+#
+#  Step 2. Inside this folder, create the required directories:
+#       mkdir config
+#       mkdir data
+#
+#  Step 3. Save this docker-compose.yml file in the SAME folder.
+#
+#  Step 4. Start the container:
+#       docker compose up -d
+#
+# Your config.ini will be created automatically on first run.
+#
+#  Step 5. Edit the config file located in the config folder.
+#
+#  Step 6. Restart the container to apply the changes:
+#       docker compose restart
+#
+#  Step 7. To view logs, use:
+#       docker compose logs -f
+# ------------------------------------------------------------
+services:
+  taptap-mqtt:
+    image: ghcr.io/godel00/taptap-mqtt-docker:latest
+    container_name: taptap-mqtt
+    cap_add:
+      - SYS_RESOURCE
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+    restart: unless-stopped
