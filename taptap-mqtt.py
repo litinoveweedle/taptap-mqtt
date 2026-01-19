@@ -226,7 +226,7 @@ config_validation = {
     "TAPTAP": {
         "LOG_LEVEL": r"[error|warning|info|debug]",
         "BINARY": r"^(\.{0,2}\/)*(\w+\/)*taptap$",
-        "SERIAL?": r"^\/dev\/tty\w+$",
+        "SERIAL?": r"^\/dev(\/[\w\-]+)+$",
         "ADDRESS?": r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$",
         "PORT": r"^\d+$",
         "MODULES": r"^(\s*(\w+)?\s*\:\s*(\w+)\s*\:\s*([0-9A-Z]\-[0-9A-Z]{7})?\s*)?(\s*\,\s*(\w+)?\s*\:\s*(\w+)\s*\:\s*([0-9A-Z]\-[0-9A-Z]{7})?\s*)*$",
