@@ -12,7 +12,7 @@ import uuid
 import re
 import subprocess
 import traceback
-from dateutil import tz
+from dateutil import tz, parser
 from datetime import datetime
 from pathlib import Path
 
@@ -927,42 +927,7 @@ def taptap_power_event(data: dict, now: float) -> bool:
                 logging("debug", data)
                 return False
             try:
-                if re.match(
-                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}[+-]\d{2}\:\d{2}$",
-                    data[name],
-                ):
-                    tmstp = datetime.strptime(
-                        data[name][0:26] + data[name][29:],
-                        "%Y-%m-%dT%H:%M:%S.%f%z",
-                    )
-                elif re.match(
-                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}[+-]\d{2}\:\d{2}$",
-                    data[name],
-                ):
-                    tmstp = datetime.strptime(
-                        data[name],
-                        "%Y-%m-%dT%H:%M:%S.%f%z",
-                    )
-                elif re.match(
-                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{9}Z$", data[name]
-                ):
-                    tmstp = datetime.strptime(
-                        data[name][0:26] + "Z",
-                        "%Y-%m-%dT%H:%M:%S.%fZ",
-                    )
-                elif re.match(
-                    r"^\d{4}\-\d{2}\-\d{2}T\d{2}\:\d{2}\:\d{2}\.\d{6}Z$", data[name]
-                ):
-                    tmstp = datetime.strptime(
-                        data[name],
-                        "%Y-%m-%dT%H:%M:%S.%fZ",
-                    )
-                else:
-                    logging(
-                        "warning", f"Invalid key 'timestamp' format: '{data[name]}'"
-                    )
-                    logging("debug", data)
-                    return False
+                tmstp = parser.parse(data[name])
                 data["timestamp"] = tmstp.isoformat()
                 data["tmstp"] = tmstp.timestamp()
             except Exception:
