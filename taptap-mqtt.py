@@ -878,6 +878,17 @@ def reset_sensor_integral(type: str, dt: datetime) -> bool:
         return False
 
 
+def json_template(path: list) -> str:
+    logging("debug", "Into json_template")
+
+    template = "{{ value_json"
+    for key in path:
+        template += "['" + str(key) + "']"
+    template += " }}"
+
+    return template
+
+
 def taptap_power_event(data: dict, now: float) -> bool:
     logging("debug", "Into taptap_power_event")
 
@@ -1297,8 +1308,8 @@ def taptap_discovery_device(mode: int) -> None:
                             name,
                             sensor,
                             "strings",
-                            ".".join(["stats", string_name, sensor, type]),
-                            ".".join(["stats", string_name]),
+                            ["stats", string_name, sensor, type],
+                            ["stats", string_name],
                         )
 
                 for type in sensors[sensor]["type_stat"]:
@@ -1307,8 +1318,8 @@ def taptap_discovery_device(mode: int) -> None:
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "overall", sensor, type]),
-                        ".".join(["stats", "overall"]),
+                        ["stats", "overall", sensor, type],
+                        ["stats", "overall"],
                     )
             else:
                 for type in sensors[sensor]["type_string"]:
@@ -1317,8 +1328,8 @@ def taptap_discovery_device(mode: int) -> None:
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "overall", sensor, type]),
-                        ".".join(["stats", "overall"]),
+                        ["stats", "overall", sensor, type],
+                        ["stats", "overall"],
                     )
 
         # Node sensors components
@@ -1331,8 +1342,8 @@ def taptap_discovery_device(mode: int) -> None:
                     name,
                     sensor,
                     "nodes",
-                    ".".join(["nodes", node_name, sensor]),
-                    ".".join(["nodes", node_name]),
+                    ["nodes", node_name, sensor],
+                    ["nodes", node_name],
                 )
 
         discovery["state_topic"] = state_topic
@@ -1375,7 +1386,7 @@ def taptap_discovery_device_sensor(
         "default_entity_id": "sensor." + sensor_id,
         "device_class": sensors[sensor]["device_class"],
         "unit_of_measurement": sensors[sensor]["unit"],
-        "value_template": "{{ value_json." + state_json_path + " }}",
+        "value_template": json_template(state_json_path),
         "availability_mode": "all",
         "availability": [{"topic": lwt_topic}],
     }
@@ -1399,11 +1410,9 @@ def taptap_discovery_device_sensor(
         discovery["components"][sensor_id]["availability"].append(
             {
                 "topic": state_topic,
-                "value_template": "{{ value_json."
-                + avail_json_path
-                + "."
-                + sensors[sensor]["avail_online_key"]
-                + " }}",
+                "value_template": json_template(
+                    avail_json_path + [sensors[sensor]["avail_online_key"]]
+                ),
             },
         )
 
@@ -1414,11 +1423,9 @@ def taptap_discovery_device_sensor(
         discovery["components"][sensor_id]["availability"].append(
             {
                 "topic": state_topic,
-                "value_template": "{{ value_json."
-                + avail_json_path
-                + "."
-                + sensors[sensor]["avail_ident_key"]
-                + " }}",
+                "value_template": json_template(
+                    avail_json_path + [sensors[sensor]["avail_ident_key"]]
+                ),
             },
         )
 
@@ -1457,8 +1464,8 @@ def taptap_discovery_legacy(mode: int) -> None:
                             name,
                             sensor,
                             "strings",
-                            ".".join(["stats", string_name, sensor, type]),
-                            ".".join(["stats", string_name]),
+                            ["stats", string_name, sensor, type],
+                            ["stats", string_name],
                             object_id,
                             origin,
                             device,
@@ -1470,8 +1477,8 @@ def taptap_discovery_legacy(mode: int) -> None:
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "overall", sensor, type]),
-                        ".".join(["stats", "overall"]),
+                        ["stats", "overall", sensor, type],
+                        ["stats", "overall"],
                         object_id,
                         origin,
                         device,
@@ -1483,8 +1490,8 @@ def taptap_discovery_legacy(mode: int) -> None:
                         name,
                         sensor,
                         "stats",
-                        ".".join(["stats", "overall", sensor, type]),
-                        ".".join(["stats", "overall"]),
+                        ["stats", "overall", sensor, type],
+                        ["stats", "overall"],
                         object_id,
                         origin,
                         device,
@@ -1500,8 +1507,8 @@ def taptap_discovery_legacy(mode: int) -> None:
                     name,
                     sensor,
                     "nodes",
-                    ".".join(["nodes", node_name, sensor]),
-                    ".".join(["nodes", node_name]),
+                    ["nodes", node_name, sensor],
+                    ["nodes", node_name],
                     object_id,
                     origin,
                     device,
@@ -1551,7 +1558,7 @@ def taptap_discovery_legacy_sensor(
         "device_class": sensors[sensor]["device_class"],
         "unit_of_measurement": sensors[sensor]["unit"],
         "state_topic": state_topic,
-        "value_template": "{{ value_json." + state_json_path + " }}",
+        "value_template": json_template(state_json_path),
         "availability_mode": "all",
         "availability": [{"topic": lwt_topic}],
         "qos": config["MQTT"]["QOS"],
@@ -1572,11 +1579,9 @@ def taptap_discovery_legacy_sensor(
         discovery[key]["availability"].append(
             {
                 "topic": state_topic,
-                "value_template": "{{ value_json."
-                + avail_json_path
-                + "."
-                + sensors[sensor]["avail_online_key"]
-                + " }}",
+                "value_template": json_template(
+                    avail_json_path + [sensors[sensor]["avail_online_key"]]
+                ),
             },
         )
 
@@ -1587,11 +1592,9 @@ def taptap_discovery_legacy_sensor(
         discovery[key]["availability"].append(
             {
                 "topic": state_topic,
-                "value_template": "{{ value_json."
-                + avail_json_path
-                + "."
-                + sensors[sensor]["avail_ident_key"]
-                + " }}",
+                "value_template": json_template(
+                    avail_json_path + [sensors[sensor]["avail_ident_key"]]
+                ),
             },
         )
 
