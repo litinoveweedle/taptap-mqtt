@@ -1,6 +1,7 @@
 #! /usr/bin/python3
 
 import paho.mqtt.client as mqtt
+import functools
 import configparser
 import hashlib
 import json
@@ -33,6 +34,18 @@ class MqttError(Exception):
 def logging(level: str, message) -> None:
     if level in log_levels and log_levels[level] >= log_level:
         print("[" + str(datetime.now()) + "] " + level.upper() + ":", message)
+
+
+def log_args(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Format arguments for logging
+        args_repr = [repr(a) for a in args]
+        kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+        signature = ", ".join(args_repr + kwargs_repr)
+        logging("debug",f"Calling {func.__name__} with args: {signature}")
+        return func(*args, **kwargs)
+    return wrapper
 
 
 # Global variables
@@ -346,8 +359,8 @@ attributes_topic = (
 logging("debug", f"Configured nodes: {nodes}")
 
 
+@log_args
 def taptap_conf() -> None:
-    logging("debug", "Into taptap_conf")
     global nodes
     global strings
     global nodes_configured
@@ -420,8 +433,8 @@ def taptap_conf() -> None:
         )
 
 
+@log_args
 def taptap_tele() -> None:
-    logging("debug", "Into taptap_tele")
     global last_tele
     global taptap
     global state
@@ -699,8 +712,8 @@ def taptap_tele() -> None:
             raise MqttError("MQTT not connected!")
 
 
+@log_args
 def tele_init() -> None:
-    logging("debug", "Into tele_init")
     global state
     global cache
     global last_tele
@@ -724,8 +737,8 @@ def tele_init() -> None:
     reset_stats_tele(dt)
 
 
+@log_args
 def reset_node_tele(node_name: str, dt: dict) -> None:
-    logging("debug", "Into reset_node_tele")
     global state
 
     # Init Node values
@@ -742,8 +755,8 @@ def reset_node_tele(node_name: str, dt: dict) -> None:
             )
 
 
+@log_args
 def reset_stats_tele(dt: dict) -> None:
-    logging("debug", "Into reset_stats_tele")
     global state
 
     # Init Stats values
@@ -767,8 +780,8 @@ def reset_stats_tele(dt: dict) -> None:
     state["stats"]["overall"]["nodes_total"]["count"] = len(nodes)
 
 
+@log_args
 def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) -> None:
-    logging("debug", "Into reset_stat_sensor")
 
     if sensor not in state_data:
         state_data[sensor] = {}
@@ -782,8 +795,8 @@ def reset_stat_sensor(sensor: str, type: str, dt: datetime, state_data: dict) ->
         state_data[sensor][type] = None
 
 
+@log_args
 def update_stats_tele(sensor: str, node_name: str, value) -> None:
-    logging("debug", "Into update_stats_tele")
 
     if strings and nodes[node_name]["string_name"] is not None:
         for type in sensors[sensor]["type_string"]:
@@ -811,8 +824,8 @@ def update_stats_tele(sensor: str, node_name: str, value) -> None:
             )
 
 
+@log_args
 def update_stat_sensor(sensor: str, type: str, state_data: dict, value) -> None:
-    logging("debug", "Into update_stat_sensor")
 
     if type == "max":
         if state_data[sensor][type] is None or value > state_data[sensor][type]:
@@ -838,10 +851,10 @@ def update_stat_sensor(sensor: str, type: str, state_data: dict, value) -> None:
         state_data[sensor][type] += value
 
 
+@log_args
 def reset_node_sensor(
     sensor: str, type: str, dt: datetime, state_data: dict, defaults: dict
 ) -> None:
-    logging("debug", "Into reset_node_sensor")
 
     if sensor in defaults:
         state_data[sensor] = defaults[sensor]
@@ -860,8 +873,8 @@ def reset_node_sensor(
         state_data[sensor] = None
 
 
+@log_args
 def reset_sensor_integral(type: str, dt: datetime) -> bool:
-    logging("debug", "Into reset_sensor_integral")
 
     if (
         (dt["last"].year != dt["now"].year and type in ["daily", "monthly", "yearly"])
@@ -878,8 +891,8 @@ def reset_sensor_integral(type: str, dt: datetime) -> bool:
         return False
 
 
+@log_args
 def json_template(path: list) -> str:
-    logging("debug", "Into json_template")
 
     template = "{{ value_json"
     for key in path:
@@ -889,8 +902,8 @@ def json_template(path: list) -> str:
     return template
 
 
+@log_args
 def taptap_power_event(data: dict, now: float) -> bool:
-    logging("debug", "Into taptap_power_event")
 
     for name in [
         "gateway",
@@ -974,8 +987,8 @@ def taptap_power_event(data: dict, now: float) -> bool:
     return False
 
 
+@log_args
 def taptap_infrastructure_event(data: dict) -> bool:
-    logging("debug", "Into taptap_infrastructure_event")
     global nodes
     global gateways
     global nodes_ids
@@ -1168,8 +1181,8 @@ def taptap_infrastructure_event(data: dict) -> bool:
     return enumerated
 
 
+@log_args
 def taptap_nodes_conf(level: str) -> None:
-    logging("debug", "Into taptap_nodes_conf")
     if nodes_configured:
         # all nodes are properly configured
         return
@@ -1208,8 +1221,8 @@ def taptap_nodes_conf(level: str) -> None:
     )
 
 
+@log_args
 def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
-    logging("debug", "Into taptap_enumerate_node")
     global nodes
     global nodes_ids
 
@@ -1262,8 +1275,8 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
     return False
 
 
+@log_args
 def taptap_discovery(mode: int) -> None:
-    logging("debug", "Into taptap_discovery")
 
     if not config["HA"]["DISCOVERY_PREFIX"]:
         return
@@ -1273,8 +1286,8 @@ def taptap_discovery(mode: int) -> None:
         taptap_discovery_device(mode)
 
 
+@log_args
 def taptap_discovery_device(mode: int) -> None:
-    logging("debug", "Into taptap_discovery_device")
     global discovery
 
     object_id = str(
@@ -1367,6 +1380,7 @@ def taptap_discovery_device(mode: int) -> None:
             raise MqttError("MQTT not connected!")
 
 
+@log_args
 def taptap_discovery_device_sensor(
     name: str,
     sensor: str,
@@ -1374,7 +1388,6 @@ def taptap_discovery_device_sensor(
     state_json_path: str,
     avail_json_path: str,
 ) -> None:
-    logging("debug", "Into taptap_discovery_device_sensor")
     global discovery
 
     sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + name
@@ -1430,8 +1443,8 @@ def taptap_discovery_device_sensor(
         )
 
 
+@log_args
 def taptap_discovery_legacy(mode: int) -> None:
-    logging("debug", "Into taptap_discovery_legacy")
     global discovery
 
     object_id = str(
@@ -1533,6 +1546,7 @@ def taptap_discovery_legacy(mode: int) -> None:
                 raise MqttError("MQTT not connected!")
 
 
+@log_args
 def taptap_discovery_legacy_sensor(
     name: str,
     sensor: str,
@@ -1543,7 +1557,6 @@ def taptap_discovery_legacy_sensor(
     origin: str,
     device: str,
 ) -> None:
-    logging("debug", "Into taptap_discovery_device_sensor")
     global discovery
 
     sensor_id = config["TAPTAP"]["TOPIC_NAME"] + "_" + name
@@ -1599,8 +1612,8 @@ def taptap_discovery_legacy_sensor(
         )
 
 
+@log_args
 def taptap_init() -> None:
-    logging("debug", "Into taptap_init")
     global taptap
 
     with open(config["TAPTAP"]["BINARY"], "rb") as fh:
@@ -1676,8 +1689,8 @@ def taptap_init() -> None:
         raise AppError("TapTap process can't be started!")
 
 
+@log_args
 def taptap_cleanup() -> None:
-    logging("debug", "Into taptap_cleanup")
     global taptap
 
     if taptap:
@@ -1701,8 +1714,8 @@ def taptap_cleanup() -> None:
         taptap = None
 
 
+@log_args
 def mqtt_init() -> None:
-    logging("debug", "Into mqtt_init")
     global client
 
     # Create mqtt client
@@ -1746,8 +1759,8 @@ def mqtt_init() -> None:
         client.subscribe(config["HA"]["BIRTH_TOPIC"])
 
 
+@log_args
 def mqtt_cleanup() -> None:
-    logging("debug", "Into mqtt_cleanup")
     global client
 
     if client:
@@ -1760,8 +1773,8 @@ def mqtt_cleanup() -> None:
 
 
 # The callback for when the client receives a CONNACK response from the server.
+@log_args
 def mqtt_on_connect(client, userdata, flags, rc) -> None:
-    logging("debug", "Into mqtt_on_connect")
     if rc != 0:
         logging("warning", "MQTT unexpected connect return code " + str(rc))
     else:
@@ -1769,16 +1782,16 @@ def mqtt_on_connect(client, userdata, flags, rc) -> None:
 
 
 # The callback for when the client receives a DISCONNECT from the server.
+@log_args
 def mqtt_on_disconnect(client, userdata, rc) -> None:
-    logging("debug", "Into mqtt_on_disconnect")
     if rc != 0:
         logging("warning", "MQTT unexpected disconnect return code " + str(rc))
     logging("info", "MQTT client disconnected")
 
 
 # The callback for when a PUBLISH message is received from the server.
+@log_args
 def mqtt_on_message(client, userdata, msg) -> None:
-    logging("debug", "Into mqtt_on_message")
     topic = str(msg.topic)
     payload = str(msg.payload.decode("utf-8"))
     logging("debug", f"MQTT received topic: {topic}, payload: {payload}")
@@ -1791,8 +1804,8 @@ def mqtt_on_message(client, userdata, msg) -> None:
 
 
 # Touch state file on successful run
+@log_args
 def run_file(mode: int) -> None:
-    logging("debug", "Into run_file")
     if mode:
         if config["RUNTIME"]["RUN_FILE"]:
             path = os.path.split(config["RUNTIME"]["RUN_FILE"])
