@@ -1696,7 +1696,8 @@ def taptap_cleanup() -> None:
                     logger.error("TapTap process is still running, terminating anyway!")
         else:
             code = taptap.returncode
-            logger.error(f"Process TapTap exited unexpectedly with error code: {code}")
+            if code > 0:
+                logger.error(f"Process TapTap exited unexpectedly with error code: {code}")
         taptap = None
 
 
