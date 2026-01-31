@@ -32,13 +32,13 @@ class MqttError(Exception):
     pass
 
 
-logger = logging.getLogger(__name__)
 # Setup logging
-logger.basicConfig(
+logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(message)s",
     level=logging.INFO,
     datefmt="%Y-%m-%d %H:%M:%S",
 )
+logger = logging.getLogger(__name__)
 
 
 def log_args(func):
@@ -312,7 +312,17 @@ if config["TAPTAP"]["LOG_LEVEL"] and config["TAPTAP"]["LOG_LEVEL"] not in [
 ]:
     logger.error("Invalid TAPTAP LOG_LEVEL config entry!")
     exit(1)
+
 logger.setLevel(config["TAPTAP"]["LOG_LEVEL"].upper())
+if config["TAPTAP"]["LOG_LEVEL"] == "debug":
+    # Reconfigure logging with microseconds for debug level
+    for handler in logging.root.handlers:
+        handler.setFormatter(
+            logging.Formatter(
+                fmt="%(asctime)s.%(msecs)03d %(levelname)s: %(message)s",
+                datefmt="%Y-%m-%d %H:%M:%S",
+            )
+        )
 
 if not Path(config["TAPTAP"]["BINARY"]).is_file():
     logger.error("TAPTAP BINARY doesn't exists!")
