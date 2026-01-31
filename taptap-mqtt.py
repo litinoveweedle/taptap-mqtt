@@ -2,6 +2,7 @@
 
 import paho.mqtt.client as mqtt
 import functools
+import logging
 import configparser
 import hashlib
 import json
@@ -31,9 +32,13 @@ class MqttError(Exception):
     pass
 
 
-def logging(level: str, message) -> None:
-    if level in log_levels and log_levels[level] >= log_level:
-        print("[" + str(datetime.now()) + "] " + level.upper() + ":", message)
+logger = logging.getLogger(__name__)
+# Setup logging
+logger.basicConfig(
+    format="%(asctime)s %(levelname)-8s %(message)s",
+    level=logging.INFO,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 def log_args(func):
@@ -43,19 +48,11 @@ def log_args(func):
         args_repr = [repr(a) for a in args]
         kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
         signature = ", ".join(args_repr + kwargs_repr)
-        logging("debug",f"Calling {func.__name__} with args: {signature}")
+        logger.debug(f"Calling {func.__name__} with args: {signature}")
         return func(*args, **kwargs)
+
     return wrapper
 
-
-# Global variables
-log_level = 1
-log_levels = {
-    "error": 3,
-    "warning": 2,
-    "info": 1,
-    "debug": 0,
-}
 
 state = {"time": 0, "uptime": 0, "nodes": {}, "stats": {}}
 sensors = {
@@ -237,7 +234,7 @@ config_validation = {
         "PASS?": r".+",
     },
     "TAPTAP": {
-        "LOG_LEVEL": r"[error|warning|info|debug]",
+        "LOG_LEVEL": r"[critical|error|warning|info|debug]",
         "BINARY": r"^(\.{0,2}\/)*(\w+\/)*taptap$",
         "SERIAL?": r"^\/dev(\/[\w\-]+)+$",
         "ADDRESS?": r"^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$",
@@ -270,24 +267,24 @@ config_validation = {
 }
 
 # Read config
-logging("debug", "Processing config")
+logger.debug("Processing config")
 config = configparser.ConfigParser()
 if len(sys.argv) > 1 and sys.argv[1] and Path(sys.argv[1]).is_file():
-    logging("info", "Reading config file: " + sys.argv[1])
+    logger.info("Reading config file: " + sys.argv[1])
     config.read(sys.argv[1])
 elif Path("config.ini").is_file():
-    logging("info", "Reading default config file: ./config.ini")
+    logger.info("Reading default config file: ./config.ini")
     config.read("config.ini")
 else:
-    logging("info", "No valid configuration file found/specified")
+    logger.info("No valid configuration file found/specified")
     exit(1)
 
-logging("debug", f"Config data:")
-logging("debug", {section: dict(config[section]) for section in config.sections()})
+logger.debug(f"Config data:")
+logger.debug({section: dict(config[section]) for section in config.sections()})
 
 for section in config_validation:
     if not section in config.sections():
-        logging("error", "Missing config section: " + section)
+        logger.error("Missing config section: " + section)
         exit(1)
     for param1 in config_validation[section]:
         optional = False
@@ -297,20 +294,28 @@ for section in config_validation:
             optional = True
 
         if param2 not in config[section]:
-            logging("error", "Missing config parameter: " + param2)
+            logger.error("Missing config parameter: " + param2)
             exit(1)
         elif config_validation[section][param1] and not re.match(
             config_validation[section][param1], config[section][param2]
         ):
             if not (optional and not config[section][param2]):
-                logging("error", "Invalid config entry: " + section + "/" + param2)
+                logger.error("Invalid config entry: " + section + "/" + param2)
                 exit(1)
 
-if config["TAPTAP"]["LOG_LEVEL"] and config["TAPTAP"]["LOG_LEVEL"] in log_levels:
-    log_level = log_levels[config["TAPTAP"]["LOG_LEVEL"]]
+if config["TAPTAP"]["LOG_LEVEL"] and config["TAPTAP"]["LOG_LEVEL"] not in [
+    "critical",
+    "error",
+    "warning",
+    "info",
+    "debug",
+]:
+    logger.error("Invalid TAPTAP LOG_LEVEL config entry!")
+    exit(1)
+logger.setLevel(config["TAPTAP"]["LOG_LEVEL"].upper())
 
 if not Path(config["TAPTAP"]["BINARY"]).is_file():
-    logging("error", "TAPTAP BINARY doesn't exists!")
+    logger.error("TAPTAP BINARY doesn't exists!")
     exit(1)
 
 if (
@@ -318,7 +323,7 @@ if (
     or (config["TAPTAP"]["SERIAL"] and config["TAPTAP"]["ADDRESS"])
     or (config["TAPTAP"]["ADDRESS"] and not config["TAPTAP"]["PORT"])
 ):
-    logging("error", "Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
+    logger.error("Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
     exit(1)
 
 # Init nodes dictionaries
@@ -356,7 +361,7 @@ attributes_topic = (
     + "/attributes"
 )
 
-logging("debug", f"Configured nodes: {nodes}")
+logger.debug(f"Configured nodes: {nodes}")
 
 
 @log_args
@@ -369,7 +374,7 @@ def taptap_conf() -> None:
     entries = list(map(str.strip, config["TAPTAP"]["MODULES"].split(",")))
 
     if not entries:
-        logging("error", f"Modules are not configured!")
+        logger.error(f"Modules are not configured!")
         exit(1)
 
     for entry in entries:
@@ -384,7 +389,7 @@ def taptap_conf() -> None:
 
             if node_string is not None:
                 if node_string == "overall":
-                    logging("error", f"Reserved node string name: {node_string}!")
+                    logger.error(f"Reserved node string name: {node_string}!")
                     exit(1)
 
                 node_name = node_string + node_name
@@ -394,12 +399,12 @@ def taptap_conf() -> None:
                     strings[node_string] += 1
 
             if node_name in nodes:
-                logging("error", f"Duplicate node name: {node_name}!")
+                logger.error(f"Duplicate node name: {node_name}!")
                 exit(1)
 
             if node_serial is not None:
                 if node_serial in nodes_serials:
-                    logging("error", f"Duplicate node serial: {node_serial}!")
+                    logger.error(f"Duplicate node serial: {node_serial}!")
                     exit(1)
                 nodes_serials.add(node_serial)
             else:
@@ -415,20 +420,18 @@ def taptap_conf() -> None:
                 "gateway_address": None,
             }
         else:
-            logging("error", f"Invalid MODULES_SERIALS entry: {entry}")
+            logger.error(f"Invalid MODULES_SERIALS entry: {entry}")
             exit(1)
 
     if len(strings) == 0:
-        logging("debug", f"Strings are not configured, strings statistics are inactive")
+        logger.debug(f"Strings are not configured, strings statistics are inactive")
     elif len(strings) == 1:
-        logging(
-            "warning",
+        logger.warning(
             f"Only single string is configured, strings statistics are inactive.",
         )
         strings = {}
     else:
-        logging(
-            "debug",
+        logger.debug(
             f"{len(strings)} strings are is configured, strings statistics are enabled.",
         )
 
@@ -443,7 +446,7 @@ def taptap_tele() -> None:
 
     # Check taptap process is alive
     if not taptap or not taptap.stdout or taptap.poll() is not None:
-        logging("error", "TapTap process is not running!")
+        logger.error("TapTap process is not running!")
         raise AppError("TapTap process is not running!")
 
     while True:
@@ -451,42 +454,42 @@ def taptap_tele() -> None:
         if not line:
             break
         elif time.time() - now > int(config["TAPTAP"]["UPDATE"]) - 1:
-            logging("warning", f"Slow run detected reading taptap messages!")
+            logger.warning(f"Slow run detected reading taptap messages!")
             taptap.stdout.truncate()
             break
 
         try:
             data = json.loads(line)
         except json.JSONDecodeError as error:
-            logging("warning", f"Can't parse json: {error}")
-            logging("debug", line)
+            logger.warning(f"Can't parse json: {error}")
+            logger.debug(line)
             continue
 
         if "event_type" not in data:
-            logging("warning", "Unknown taptap event type")
-            logging("debug", data)
+            logger.warning("Unknown taptap event type")
+            logger.debug(data)
             continue
 
         if data["event_type"] == "infrastructure_report":
-            logging("debug", "Received infrastructure_report event")
-            logging("debug", data)
+            logger.debug("Received infrastructure_report event")
+            logger.debug(data)
             if taptap_infrastructure_event(data):
                 # Infrastructure Event processed
-                logging("debug", "Successfully processed infrastructure event")
-                logging("debug", data)
-                logging("info", "Nodes were enumerated, flushing message cache")
+                logger.debug("Successfully processed infrastructure event")
+                logger.debug(data)
+                logger.info("Nodes were enumerated, flushing message cache")
                 cache = {node_name: {} for node_name in nodes}
         elif data["event_type"] == "power_report":
-            logging("debug", "Received power_report event")
-            logging("debug", data)
+            logger.debug("Received power_report event")
+            logger.debug(data)
             if taptap_power_event(data, now):
                 # Power Report processed
                 cache[nodes_ids[str(data["node_id"])]][data["tmstp"]] = data
-                logging("debug", "Successfully processed power event")
-                logging("debug", data)
+                logger.debug("Successfully processed power event")
+                logger.debug(data)
         else:
-            logging("warning", "Unknown taptap event type")
-            logging("debug", data)
+            logger.warning("Unknown taptap event type")
+            logger.debug(data)
             continue
 
     if last_tele + int(config["TAPTAP"]["UPDATE"]) < now:
@@ -501,7 +504,7 @@ def taptap_tele() -> None:
         for node_name in nodes:
             if nodes[node_name]["node_id"] is None:
                 # Not yet received any message from this node
-                logging("debug", f"Node {node_name} not yet seen on the bus")
+                logger.debug(f"Node {node_name} not yet seen on the bus")
                 reset_node_tele(node_name, dt)
                 continue
             elif nodes[node_name]["node_serial"] is not None:
@@ -518,9 +521,9 @@ def taptap_tele() -> None:
             if node_name in cache and len(cache[node_name]):
                 # Node is online - update sensor values
                 if state["nodes"][node_name]["state_online"] == "offline":
-                    logging("info", f"Node {node_name} came online")
+                    logger.info(f"Node {node_name} came online")
                 else:
-                    logging("debug", f"Node {node_name} is online")
+                    logger.debug(f"Node {node_name} is online")
 
                 state["stats"]["overall"]["nodes_online"]["count"] += 1
                 if strings and nodes[node_name]["string_name"] is not None:
@@ -594,7 +597,7 @@ def taptap_tele() -> None:
                 >= now
             ):
                 # Node is online but no new data were received - keep last valid sensor values
-                logging("info", f"Node {node_name} didn't report new data")
+                logger.info(f"Node {node_name} didn't report new data")
                 state["stats"]["overall"]["nodes_online"]["count"] += 1
                 if strings and nodes[node_name]["string_name"] is not None:
                     state["stats"][nodes[node_name]["string_name"]]["nodes_online"][
@@ -619,7 +622,7 @@ def taptap_tele() -> None:
 
             elif state["nodes"][node_name]["state_online"] == "online":
                 # Node went recently offline - reset sensor values, keep node sensors updated
-                logging("info", f"Node {node_name} went offline")
+                logger.info(f"Node {node_name} went offline")
                 for sensor in sensors:
                     if not sensors[sensor]["type_node"]:
                         continue
@@ -632,7 +635,7 @@ def taptap_tele() -> None:
 
             else:
                 # Node is offline - reset sensor values, keep node sensors updated
-                logging("debug", f"Node {node_name} is offline")
+                logger.debug(f"Node {node_name} is offline")
                 for sensor in sensors:
                     if not sensors[sensor]["type_node"]:
                         continue
@@ -646,40 +649,36 @@ def taptap_tele() -> None:
         for string_name in ["overall"] + list(strings):
             # Set identified state
             if state["stats"][string_name]["nodes_identified"]["count"] == 0:
-                logging("debug", f"No nodes were find identified during last cycle")
+                logger.debug(f"No nodes were find identified during last cycle")
                 state["stats"][string_name]["state_identified"] = "offline"
             elif (
                 state["stats"][string_name]["nodes_identified"]["count"]
                 < state["stats"][string_name]["nodes_total"]["count"]
             ):
-                logging(
-                    "info",
+                logger.info(
                     f"Only '{state['stats'][string_name]['nodes_identified']['count']}' nodes were find identified during last cycle",
                 )
                 state["stats"][string_name]["state_identified"] = "offline"
             else:
-                logging(
-                    "debug",
+                logger.debug(
                     f"All '{state['stats'][string_name]['nodes_identified']['count']}' nodes were find identified during last cycle",
                 )
                 state["stats"][string_name]["state_identified"] = "online"
 
             # Set device state
             if state["stats"][string_name]["nodes_online"]["count"] == 0:
-                logging("debug", f"No nodes reported online during last cycle")
+                logger.debug(f"No nodes reported online during last cycle")
                 state["stats"][string_name]["state_online"] = "offline"
             elif (
                 state["stats"][string_name]["nodes_online"]["count"]
                 < state["stats"][string_name]["nodes_total"]["count"]
             ):
-                logging(
-                    "info",
+                logger.info(
                     f"Only '{state['stats'][string_name]['nodes_online']['count']}' nodes reported online during last cycle",
                 )
                 state["stats"][string_name]["state_online"] = "online"
             else:
-                logging(
-                    "debug",
+                logger.debug(
                     f"All '{state['stats'][string_name]['nodes_online']['count']}' nodes reported online during last cycle",
                 )
                 state["stats"][string_name]["state_online"] = "online"
@@ -696,19 +695,19 @@ def taptap_tele() -> None:
 
         if client and client.is_connected():
             # Sent LWT update
-            logging("debug", f"Publish MQTT lwt topic {lwt_topic}")
+            logger.debug(f"Publish MQTT lwt topic {lwt_topic}")
             client.publish(
                 lwt_topic, payload="online", qos=int(config["MQTT"]["QOS"]), retain=True
             )
             # Sent State update
-            logging("debug", f"Updating MQTT state topic {state_topic}")
-            logging("debug", json.dumps(state))
+            logger.debug(f"Updating MQTT state topic {state_topic}")
+            logger.debug(json.dumps(state))
             client.publish(
                 state_topic, payload=json.dumps(state), qos=int(config["MQTT"]["QOS"])
             )
             last_tele = now
         else:
-            logging("error", "MQTT not connected!")
+            logger.error("MQTT not connected!")
             raise MqttError("MQTT not connected!")
 
 
@@ -917,13 +916,13 @@ def taptap_power_event(data: dict, now: float) -> bool:
         "timestamp",
     ]:
         if name not in data:
-            logging("warning", f"Missing required key: '{name}'")
-            logging("debug", data)
+            logger.warning(f"Missing required key: '{name}'")
+            logger.debug(data)
             return False
         elif name in ["gateway", "node"]:
             if not isinstance(data[name], int):
-                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                logging("debug", data)
+                logger.warning(f"Invalid key: '{name}' value: '{data[name]}'")
+                logger.debug(data)
                 return False
             data[name + "_id"] = str(data[name])
             del data[name]
@@ -935,37 +934,36 @@ def taptap_power_event(data: dict, now: float) -> bool:
             "temperature",
         ]:
             if not isinstance(data[name], (float, int)):
-                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                logging("debug", data)
+                logger.warning(f"Invalid key: '{name}' value: '{data[name]}'")
+                logger.debug(data)
                 return False
             if name == "dc_dc_duty_cycle":
                 data["duty_cycle"] = data["dc_dc_duty_cycle"] * 100
         elif name in ["rssi"]:
             if not isinstance(data[name], int):
-                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                logging("debug", data)
+                logger.warning(f"Invalid key: '{name}' value: '{data[name]}'")
+                logger.debug(data)
                 return False
         elif name == "timestamp":
             if not (isinstance(data[name], str)) and data[name]:
-                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                logging("debug", data)
+                logger.warning(f"Invalid key: '{name}' value: '{data[name]}'")
+                logger.debug(data)
                 return False
             try:
                 tmstp = parser.parse(data[name])
                 data["timestamp"] = tmstp.isoformat()
                 data["tmstp"] = tmstp.timestamp()
             except Exception:
-                logging("warning", f"Invalid key: '{name}' value: '{data[name]}'")
-                logging("debug", data)
+                logger.warning(f"Invalid key: '{name}' value: '{data[name]}'")
+                logger.debug(data)
                 return False
             # Copy validated data into cache struct
             if data["tmstp"] + int(config["TAPTAP"]["UPDATE"]) < now:
                 diff = round(now - data["tmstp"], 1)
-                logging(
-                    "warning",
+                logger.warning(
                     f"Old data detected: '{data[name]}', time difference: '{diff}'s",
                 )
-                logging("debug", data)
+                logger.debug(data)
                 return False
             else:
                 # Calculate power and current_out
@@ -976,11 +974,10 @@ def taptap_power_event(data: dict, now: float) -> bool:
                 )
                 if not taptap_enumerate_node(data["gateway_id"], data["node_id"]):
                     # get node name and serial and enumerate if necessary
-                    logging(
-                        "warning",
+                    logger.warning(
                         f"Unable to enumerate node id: '{data['node_id']}'",
                     )
-                    logging("debug", data)
+                    logger.debug(data)
                     return False
                 else:
                     return True
@@ -998,22 +995,21 @@ def taptap_infrastructure_event(data: dict) -> bool:
     pattern_id = re.compile(r"^\d+$")
 
     if not ("gateways" in data and isinstance(data["gateways"], dict)):
-        logging("warning", f"Invalid 'gateways' key in infrastructure event")
-        logging("debug", data)
+        logger.warning(f"Invalid 'gateways' key in infrastructure event")
+        logger.debug(data)
     else:
         for gateway_id in data["gateways"]:
             if not pattern_id.match(gateway_id):
-                logging(
-                    "warning",
+                logger.warning(
                     f"Invalid gateway id in gateways key in the the infrastructure event: '{gateway_id}'",
                 )
-                logging("debug", data)
+                logger.debug(data)
                 continue
             elif not isinstance(data["gateways"][gateway_id], dict):
-                logging(
-                    "warning", f"Invalid gateways structure in the infrastructure event"
+                logger.warning(
+                    f"Invalid gateways structure in the infrastructure event"
                 )
-                logging("debug", data)
+                logger.debug(data)
                 continue
             elif "address" in data["gateways"][gateway_id]:
                 if gateway_id not in gateways:
@@ -1022,8 +1018,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                     r"^([0-9A-Fa-f]{2}[:-]){7}([0-9A-Fa-f]{2})$",
                     data["gateways"][gateway_id]["address"],
                 ):
-                    logging(
-                        "debug",
+                    logger.debug(
                         f"Found valid address: '{data['gateways'][gateway_id]['address']}' for getaway id: '{gateway_id}'",
                     )
                     gateways[gateway_id]["address"] = data["gateways"][gateway_id][
@@ -1033,8 +1028,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                 if gateway_id not in gateways:
                     gateways[gateway_id] = {"address": "", "version": ""}
                 if data["gateways"][gateway_id]["version"] != "":
-                    logging(
-                        "debug",
+                    logger.debug(
                         f"Found valid version: '{data['gateways'][gateway_id]['version']}' for getaway id: '{gateway_id}'",
                     )
                     gateways[gateway_id]["version"] = data["gateways"][gateway_id][
@@ -1043,52 +1037,47 @@ def taptap_infrastructure_event(data: dict) -> bool:
             else:
                 if gateway_id not in gateways:
                     gateways[gateway_id] = {"address": "", "version": ""}
-                logging(
-                    "warning",
+                logger.warning(
                     f"Missing address or version keys in the gateways structure in the infrastructure event",
                 )
-                logging("debug", data)
+                logger.debug(data)
                 continue
 
-        logging("debug", f"Processes gateways data in the infrastructure event")
-        logging("debug", gateways)
+        logger.debug(f"Processes gateways data in the infrastructure event")
+        logger.debug(gateways)
 
     if not ("nodes" in data and isinstance(data["nodes"], dict)):
-        logging("warning", f"Invalid 'nodes' key in infrastructure event")
-        logging("debug", data)
+        logger.warning(f"Invalid 'nodes' key in infrastructure event")
+        logger.debug(data)
         return enumerated
 
     for gateway_id in data["nodes"]:
         if not pattern_id.match(gateway_id):
-            logging(
-                "warning",
+            logger.warning(
                 f"Invalid gateway id in nodes key in in the infrastructure event: '{gateway_id}'",
             )
-            logging("debug", data)
+            logger.debug(data)
             continue
         elif not isinstance(data["nodes"][gateway_id], dict):
-            logging("warning", f"Invalid nodes structure in the infrastructure event")
-            logging("debug", data)
+            logger.warning(f"Invalid nodes structure in the infrastructure event")
+            logger.debug(data)
             continue
         for node_id in data["nodes"][gateway_id]:
             if not pattern_id.match(node_id):
-                logging(
-                    "warning",
+                logger.warning(
                     f"Invalid nodes id in the infrastructure event: '{node_id}'",
                 )
-                logging("debug", data)
+                logger.debug(data)
             elif "barcode" not in data["nodes"][gateway_id][node_id]:
-                logging(
-                    "warning",
+                logger.warning(
                     f"Missing barcode in the infrastructure event for node id: '{node_id}'",
                 )
-                logging("debug", data)
+                logger.debug(data)
             elif not re.match(
                 r"^[0-9A-Z]\-[0-9A-Z]{7}$",
                 data["nodes"][gateway_id][node_id]["barcode"],
             ):
-                logging(
-                    "warning",
+                logger.warning(
                     f"Invalid barcode format in the infrastructure event for node id: '{node_id}'",
                 )
             else:
@@ -1097,8 +1086,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                 gateway_address = (
                     gateways[gateway_id]["address"] if gateway_id in gateways else None
                 )
-                logging(
-                    "debug",
+                logger.debug(
                     f"Discovered valid node serial: {node_serial}",
                 )
                 nodes_ids.pop(node_id, None)
@@ -1106,8 +1094,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                     if nodes[node_name]["node_serial"] == node_serial:
                         if nodes[node_name]["node_id"] != node_id:
                             # discovered new permanent mapping
-                            logging(
-                                "info",
+                            logger.info(
                                 f"Permanently enumerated node id: {node_id} to node name: {node_name} and serial: {node_serial}",
                             )
                             enumerated = True
@@ -1121,8 +1108,7 @@ def taptap_infrastructure_event(data: dict) -> bool:
                         nodes_ids[node_id] = node_name
                     elif nodes[node_name]["node_id"] == node_id:
                         # delete temporary mapping
-                        logging(
-                            "info",
+                        logger.info(
                             f"Delete invalid serial {node_serial} and node name: {node_name} entries for node id: {node_id}",
                         )
                         enumerated = True
@@ -1137,12 +1123,10 @@ def taptap_infrastructure_event(data: dict) -> bool:
                     for node_name in sorted(nodes):
                         if nodes[node_name]["node_serial"] is None:
                             # create permanent mapping for unknown serial
-                            logging(
-                                "warning",
+                            logger.warning(
                                 f"Discovered unconfigured node serial {node_serial} on node id: {node_id} assigning it to the first available node name: {node_name}",
                             )
-                            logging(
-                                "warning",
+                            logger.warning(
                                 f"Consider to permanently assign discovered node serial: {node_serial} to the correct node name in the configuration!",
                             )
                             nodes_configured = False
@@ -1156,33 +1140,30 @@ def taptap_infrastructure_event(data: dict) -> bool:
                                 }
                             )
                             nodes_ids[node_id] = node_name
-                            taptap_nodes_conf("warning")
+                            taptap_nodes_conf(0)
                             break
                     else:
-                        logging(
-                            "error",
+                        logger.error(
                             f"Discovered unconfigured node serial {node_serial} on node id: {node_id} but there is not any free node_name to assign!",
                         )
-                        logging(
-                            "error",
+                        logger.error(
                             f"You shall define all node names and corresponding node serials in the configuration!",
                         )
 
     if not enumerated:
-        logging(
-            "debug",
+        logger.debug(
             f"Finished processing node data, no enumeration was required",
         )
     else:
-        logging("debug", f"Finished processing node data, nodes were enumerated")
+        logger.debug(f"Finished processing node data, nodes were enumerated")
 
-    logging("debug", nodes)
+    logger.debug(nodes)
 
     return enumerated
 
 
 @log_args
-def taptap_nodes_conf(level: str) -> None:
+def taptap_nodes_conf(mode: bool) -> None:
     if nodes_configured:
         # all nodes are properly configured
         return
@@ -1211,12 +1192,18 @@ def taptap_nodes_conf(level: str) -> None:
             )
         else:
             nodes_conf.append(":" + node_name + ":")
-    logging(
+
+    level = logging.WARNING
+    if mode:
+        level = logging.ERROR
+
+    logger.log(
         level,
         f"To simplify nodes configuration you will find all currently discovered nodes printed bellow in the proper format. Adjust string and modules names to your needs.",
     )
-    logging(
+    logger.log(
         level,
+        f"Then copy and paste the line below into the MODULES_SERIALS configuration entry:"
         ", ".join(nodes_conf),
     )
 
@@ -1229,8 +1216,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
     if node_id in nodes_ids:
         # node was already discovered
         node_name = nodes_ids[node_id]
-        logging(
-            "debug",
+        logger.debug(
             f"Node id: {node_id} already enumerated to node name: '{node_name}' and serial: '{nodes[node_name]['node_serial']}'",
         )
         if (
@@ -1238,8 +1224,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
             and gateways[gateway_id]["address"] != nodes[node_name]["gateway_address"]
         ):
             nodes[node_name]["gateway_address"] = gateways[gateway_id]["address"]
-            logging(
-                "info",
+            logger.info(
                 f"Updated gateway address for node id: {node_id} to '{gateways[gateway_id]['address']}'",
             )
         return True
@@ -1249,8 +1234,7 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
             if nodes[node_name]["node_id"] is None:
                 nodes[node_name]["node_id"] = node_id
                 nodes_ids[node_id] = node_name
-                logging(
-                    "info",
+                logger.info(
                     f"Temporary enumerated node id: {node_id} to node name: {node_name}",
                 )
                 if (
@@ -1261,17 +1245,15 @@ def taptap_enumerate_node(gateway_id: str, node_id: str) -> bool:
                     nodes[node_name]["gateway_address"] = gateways[gateway_id][
                         "address"
                     ]
-                    logging(
-                        "info",
+                    logger.info(
                         f"Updated gateway address for node id: {node_id} to '{gateways[gateway_id]['address']}'",
                     )
                 return True
 
-    logging(
-        "warning",
+    logger.warning(
         f"Unable to enumerate node id: {node_id} - no more node names available!",
     )
-    logging("debug", nodes)
+    logger.debug(nodes)
     return False
 
 
@@ -1368,8 +1350,8 @@ def taptap_discovery_device(mode: int) -> None:
             discovery_topic = (
                 config["HA"]["DISCOVERY_PREFIX"] + "/device/" + object_id + "/config"
             )
-            logging("debug", f"Publish MQTT discovery topic {discovery_topic}")
-            logging("debug", discovery)
+            logger.debug(f"Publish MQTT discovery topic {discovery_topic}")
+            logger.debug(discovery)
             client.publish(
                 discovery_topic,
                 payload=json.dumps(discovery),
@@ -1534,8 +1516,8 @@ def taptap_discovery_legacy(mode: int) -> None:
                     config["HA"]["DISCOVERY_PREFIX"] + "/" + component + "/config"
                 )
                 # Sent discovery
-                logging("debug", f"Publish MQTT discovery topic {discovery_topic}")
-                logging("debug", discovery[component])
+                logger.debug(f"Publish MQTT discovery topic {discovery_topic}")
+                logger.debug(discovery[component])
                 client.publish(
                     discovery_topic,
                     payload=json.dumps(discovery[component]),
@@ -1623,12 +1605,11 @@ def taptap_init() -> None:
             if not data:
                 break
             m.update(data)
-        logging("debug", "Using TapTap binary with MD5 checksum: " + m.hexdigest())
+        logger.debug("Using TapTap binary with MD5 checksum: " + m.hexdigest())
 
     # Initialize taptap process
     if config["TAPTAP"]["SERIAL"]:
-        logging(
-            "debug",
+        logger.debug(
             "Starting TapTap process: "
             + config["TAPTAP"]["BINARY"]
             + " observe --serial "
@@ -1650,8 +1631,7 @@ def taptap_init() -> None:
             pipesize=1024 * 1024,
         )
     elif config["TAPTAP"]["ADDRESS"]:
-        logging(
-            "debug",
+        logger.debug(
             "Starting TapTap process: "
             + config["TAPTAP"]["BINARY"]
             + " observe --tcp "
@@ -1677,15 +1657,15 @@ def taptap_init() -> None:
             pipesize=1024 * 1024,
         )
     else:
-        logging("error", "Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
+        logger.error("Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
         exit(1)
 
     if taptap and taptap.stdout:
         # Set stdout as non blocking
-        logging("info", "TapTap process started")
+        logger.info("TapTap process started")
         os.set_blocking(taptap.stdout.fileno(), False)
     else:
-        logging("error", "TapTap process can't be started!")
+        logger.error("TapTap process can't be started!")
         raise AppError("TapTap process can't be started!")
 
 
@@ -1695,22 +1675,18 @@ def taptap_cleanup() -> None:
 
     if taptap:
         if taptap.poll() is None:
-            logging("info", "Terminating TapTap process.")
+            logger.info("Terminating TapTap process.")
             taptap.terminate()
             time.sleep(5)
             if taptap.poll() is None:
-                logging("warning", "TapTap process is still running, sending kill!")
+                logger.warning("TapTap process is still running, sending kill!")
                 taptap.kill()
                 time.sleep(5)
                 if taptap.poll() is None:
-                    logging(
-                        "error", "TapTap process is still running, terminating anyway!"
-                    )
+                    logger.error("TapTap process is still running, terminating anyway!")
         else:
             code = taptap.returncode
-            logging(
-                "error", f"Process TapTap exited unexpectedly with error code: {code}"
-            )
+            logger.error(f"Process TapTap exited unexpectedly with error code: {code}")
         taptap = None
 
 
@@ -1776,17 +1752,17 @@ def mqtt_cleanup() -> None:
 @log_args
 def mqtt_on_connect(client, userdata, flags, rc) -> None:
     if rc != 0:
-        logging("warning", "MQTT unexpected connect return code " + str(rc))
+        logger.warning("MQTT unexpected connect return code " + str(rc))
     else:
-        logging("info", "MQTT client connected")
+        logger.info("MQTT client connected")
 
 
 # The callback for when the client receives a DISCONNECT from the server.
 @log_args
 def mqtt_on_disconnect(client, userdata, rc) -> None:
     if rc != 0:
-        logging("warning", "MQTT unexpected disconnect return code " + str(rc))
-    logging("info", "MQTT client disconnected")
+        logger.warning("MQTT unexpected disconnect return code " + str(rc))
+    logger.info("MQTT client disconnected")
 
 
 # The callback for when a PUBLISH message is received from the server.
@@ -1794,13 +1770,13 @@ def mqtt_on_disconnect(client, userdata, rc) -> None:
 def mqtt_on_message(client, userdata, msg) -> None:
     topic = str(msg.topic)
     payload = str(msg.payload.decode("utf-8"))
-    logging("debug", f"MQTT received topic: {topic}, payload: {payload}")
+    logger.debug(f"MQTT received topic: {topic}, payload: {payload}")
     match_birth = re.match(r"^" + config["HA"]["BIRTH_TOPIC"] + "$", topic)
     if config["HA"]["BIRTH_TOPIC"] and match_birth:
         # discovery
         taptap_discovery(0)
     else:
-        logging("warning", "Unknown topic: " + topic + ", message: " + payload)
+        logger.warning("Unknown topic: " + topic + ", message: " + payload)
 
 
 # Touch state file on successful run
@@ -1816,10 +1792,9 @@ def run_file(mode: int) -> None:
                 # Write stats file
                 with open(config["RUNTIME"]["RUN_FILE"], "a"):
                     os.utime(config["RUNTIME"]["RUN_FILE"], None)
-                logging("debug", "stats file updated")
+                logger.debug("stats file updated")
             except IOError as error:
-                logging(
-                    "error",
+                logger.error(
                     f"Unable to write to file: {config['RUNTIME']['RUN_FILE']} error: {error}",
                 )
                 exit(1)
@@ -1857,7 +1832,7 @@ while True:
             restart = 0
             time.sleep(1)
     except BaseException as error:
-        logging("error", f"An exception occurred: {type(error).__name__} – {error}")
+        logger.error(f"An exception occurred: {type(error).__name__} – {error}")
         if type(error) in [MqttError, AppError] and (
             int(config["RUNTIME"]["MAX_ERROR"]) == 0
             or restart <= int(config["RUNTIME"]["MAX_ERROR"])
@@ -1870,16 +1845,17 @@ while True:
             # Try to reconnect later
             time.sleep(10)
         elif type(error) in [KeyboardInterrupt, SystemExit]:
-            logging("error", "Gracefully terminating application")
+            logger.error("Gracefully terminating application")
             mqtt_cleanup()
             taptap_cleanup()
             run_file(0)
             # Print any unknown nodes
-            taptap_nodes_conf("error")
+            taptap_nodes_conf(1)
             # Graceful shutdown
+            logger.error("Application terminated")
             sys.exit(0)
         else:
-            logging("error", f"Unknown exception, aborting application")
-            logging("debug", f"Exception details: {traceback.format_exc()}")
+            logger.error(f"Unknown exception, aborting application")
+            logger.debug(f"Exception details: {traceback.format_exc()}")
             # Exit with error
             sys.exit(1)
