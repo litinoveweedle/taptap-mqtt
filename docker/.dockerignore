@@ -1,0 +1,22 @@
+# Ignore everything by default
+**
+
+# Allow Docker directory
+!docker/
+
+# Allow required source files for TapTap-MQTT
+!taptap-mqtt.py
+!requirements.txt
+!config.ini.example
+
+# Allow license and readme files
+!LICENSE
+!README.md
+
+# Ignore Git and CI metadata
+.git
+.github
+
+# Ignore common temporary files
+*.log
+*.tmp
