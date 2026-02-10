@@ -13,13 +13,22 @@ USER = mqttuser
 PASS = mqttpass
 
 [TAPTAP]
-# Log level, possible values are error, warning, info, debug.
+# Controls verbosity of taptap-mqtt logging output.
+# Possible values: error, warning, info, debug.
+#   info:  Node status changes, MQTT events, errors, and warnings.
+#          ~2-3 MB/panel/day at UPDATE=5, much less at UPDATE=60.
+#   debug: Everything in info, plus per-poll telemetry data, power report
+#          events, node enumeration steps, and raw Modbus responses.
+#          ~400-500 MB/panel/day at UPDATE=5 — can quickly fill disk.
+# Recommended: "info" for normal operation. Use "debug" only for
+# short-term troubleshooting to avoid excessive disk usage.
 LOG_LEVEL = warning
 # Path to the taptap binary
 BINARY = ./taptap
 # Serial device to use like /dev/ACM0, set empty if using Modbus to Ethernet to Modbus converter.
-SERIAL = 
+SERIAL =
 # IP address of the Ethernet to Modbus convertor, set empty if using usb/serial Modus converter.
+# NOTE: ADDRESS must be present even when empty — taptap-mqtt.py requires it for config validation.
 ADDRESS = 192.168.1.50
 # IP port of the Ethernet to Modbus convertor, typically 502
 PORT = 502
