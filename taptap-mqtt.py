@@ -556,7 +556,7 @@ def taptap_tele() -> None:
                         prev_tmstp = state["nodes"][node_name]["tmstp"]
                         value = 0
                         for tmstp in cache[node_name]:
-                            if prev_tmstp + int(config["TAPTAP"]["UPDATE"]) + 1 > tmstp:
+                            if prev_tmstp + int(config["TAPTAP"]["TIMEOUT"]) > tmstp:
                                 value += cache[node_name][tmstp][
                                     sensors[sensor]["type_node"][type]
                                 ] * (tmstp - prev_tmstp)
@@ -569,13 +569,24 @@ def taptap_tele() -> None:
                             state["nodes"][node_name][sensor] += value
                     elif type == "value":
                         if sensors[sensor]["unit"]:
-                            # Calculate average for data smoothing
+                            # Calculate time-weighted average
                             value = 0
+                            total_dt = 0
+                            prev_tmstp = None
                             for tmstp in cache[node_name]:
-                                value += cache[node_name][tmstp][
+                                if prev_tmstp is not None:
+                                    dt = tmstp - prev_tmstp
+                                    value += cache[node_name][tmstp][
+                                        sensors[sensor]["type_node"][type]
+                                    ] * dt
+                                    total_dt += dt
+                                prev_tmstp = tmstp
+                            if total_dt > 0:
+                                value /= total_dt
+                            else:
+                                value = cache[node_name][last][
                                     sensors[sensor]["type_node"][type]
                                 ]
-                            value /= len(cache[node_name])
                             if "scale" in sensors[sensor]:
                                 value *= sensors[sensor]["scale"]
                         else:
