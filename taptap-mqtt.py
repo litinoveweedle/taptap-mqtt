@@ -553,13 +553,18 @@ def taptap_tele() -> None:
                         value = nodes[node_name][sensors[sensor]["type_node"]["node"]]
                         state["nodes"][node_name][sensor] = value
                     elif type in ["daily", "weekly", "monthly", "yearly"]:
+                        # Calculate integral value for the period
                         prev_tmstp = state["nodes"][node_name]["tmstp"]
                         value = 0
                         for tmstp in cache[node_name]:
                             if prev_tmstp + int(config["TAPTAP"]["TIMEOUT"]) > tmstp:
-                                value += cache[node_name][tmstp][
-                                    sensors[sensor]["type_node"][type]
-                                ] * (tmstp - prev_tmstp)
+                                tmstp_diff = tmstp - prev_tmstp
+                                value += (
+                                    cache[node_name][tmstp][
+                                        sensors[sensor]["type_node"][type]
+                                    ]
+                                    * tmstp_diff
+                                )
                             prev_tmstp = tmstp
                         if "scale" in sensors[sensor]:
                             value *= sensors[sensor]["scale"]
@@ -570,19 +575,25 @@ def taptap_tele() -> None:
                     elif type == "value":
                         if sensors[sensor]["unit"]:
                             # Calculate time-weighted average
+                            prev_tmstp = state["nodes"][node_name]["tmstp"]
                             value = 0
-                            total_dt = 0
-                            prev_tmstp = None
+                            total_diff = 0
                             for tmstp in cache[node_name]:
-                                if prev_tmstp is not None:
-                                    dt = tmstp - prev_tmstp
-                                    value += cache[node_name][tmstp][
-                                        sensors[sensor]["type_node"][type]
-                                    ] * dt
-                                    total_dt += dt
+                                if (
+                                    prev_tmstp + int(config["TAPTAP"]["TIMEOUT"])
+                                    > tmstp
+                                ):
+                                    tmstp_diff = tmstp - prev_tmstp
+                                    value += (
+                                        cache[node_name][tmstp][
+                                            sensors[sensor]["type_node"][type]
+                                        ]
+                                        * tmstp_diff
+                                    )
+                                    total_diff += tmstp_diff
                                 prev_tmstp = tmstp
-                            if total_dt > 0:
-                                value /= total_dt
+                            if total_diff > 0:
+                                value /= total_diff
                             else:
                                 value = cache[node_name][last][
                                     sensors[sensor]["type_node"][type]
