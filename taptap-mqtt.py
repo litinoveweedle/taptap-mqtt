@@ -556,8 +556,12 @@ def taptap_tele() -> None:
                         # Calculate integral value for the period
                         prev_tmstp = state["nodes"][node_name]["tmstp"]
                         value = 0
-                        for tmstp in cache[node_name]:
-                            if prev_tmstp + int(config["TAPTAP"]["TIMEOUT"]) > tmstp:
+                        for tmstp in sorted(cache[node_name]):
+                            if (
+                                prev_tmstp < tmstp
+                                and prev_tmstp + int(config["TAPTAP"]["TIMEOUT"])
+                                > tmstp
+                            ):
                                 tmstp_diff = tmstp - prev_tmstp
                                 value += (
                                     cache[node_name][tmstp][
@@ -578,9 +582,10 @@ def taptap_tele() -> None:
                             prev_tmstp = state["nodes"][node_name]["tmstp"]
                             value = 0
                             total_diff = 0
-                            for tmstp in cache[node_name]:
+                            for tmstp in sorted(cache[node_name]):
                                 if (
-                                    prev_tmstp + int(config["TAPTAP"]["TIMEOUT"])
+                                    prev_tmstp < tmstp
+                                    and prev_tmstp + int(config["TAPTAP"]["TIMEOUT"])
                                     > tmstp
                                 ):
                                     tmstp_diff = tmstp - prev_tmstp
@@ -990,7 +995,7 @@ def taptap_power_event(data: dict, now: float) -> bool:
                 logger.debug(data)
                 return False
             # Copy validated data into cache struct
-            if data["tmstp"] + int(config["TAPTAP"]["UPDATE"]) < now:
+            if data["tmstp"] + int(config["TAPTAP"]["TIMEOUT"]) < now:
                 diff = round(now - data["tmstp"], 1)
                 logger.warning(
                     f"Old data detected: '{data[name]}', time difference: '{diff}'s",
