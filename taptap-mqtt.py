@@ -1638,7 +1638,10 @@ def taptap_init() -> None:
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            pipesize=1024 * 1024,
+# The pipesize parameter causes Python to call fcntl.F_SETPIPE_SZ to resize the kernel pipe buffer,
+# which requires the SYS_RESOURCE capability that is stripped by default in Docker containers.
+# The default pipe size (typically 64KB on Linux) is sufficient for normal operation.
+#            pipesize=1024 * 1024,
         )
     elif config["TAPTAP"]["ADDRESS"]:
         logger.debug(
@@ -1664,7 +1667,10 @@ def taptap_init() -> None:
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            pipesize=1024 * 1024,
+# The pipesize parameter causes Python to call fcntl.F_SETPIPE_SZ to resize the kernel pipe buffer,
+# which requires the SYS_RESOURCE capability that is stripped by default in Docker containers.
+# The default pipe size (typically 64KB on Linux) is sufficient for normal operation.
+#            pipesize=1024 * 1024,
         )
     else:
         logger.error("Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
