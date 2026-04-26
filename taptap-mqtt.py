@@ -553,13 +553,22 @@ def taptap_tele() -> None:
                         value = nodes[node_name][sensors[sensor]["type_node"]["node"]]
                         state["nodes"][node_name][sensor] = value
                     elif type in ["daily", "weekly", "monthly", "yearly"]:
+                        # Calculate integral value for the period
                         prev_tmstp = state["nodes"][node_name]["tmstp"]
                         value = 0
-                        for tmstp in cache[node_name]:
-                            if prev_tmstp + int(config["TAPTAP"]["UPDATE"]) + 1 > tmstp:
-                                value += cache[node_name][tmstp][
-                                    sensors[sensor]["type_node"][type]
-                                ] * (tmstp - prev_tmstp)
+                        for tmstp in sorted(cache[node_name]):
+                            if (
+                                prev_tmstp < tmstp
+                                and prev_tmstp + int(config["TAPTAP"]["TIMEOUT"])
+                                > tmstp
+                            ):
+                                tmstp_diff = tmstp - prev_tmstp
+                                value += (
+                                    cache[node_name][tmstp][
+                                        sensors[sensor]["type_node"][type]
+                                    ]
+                                    * tmstp_diff
+                                )
                             prev_tmstp = tmstp
                         if "scale" in sensors[sensor]:
                             value *= sensors[sensor]["scale"]
@@ -569,13 +578,31 @@ def taptap_tele() -> None:
                             state["nodes"][node_name][sensor] += value
                     elif type == "value":
                         if sensors[sensor]["unit"]:
-                            # Calculate average for data smoothing
+                            # Calculate time-weighted average
+                            prev_tmstp = state["nodes"][node_name]["tmstp"]
                             value = 0
-                            for tmstp in cache[node_name]:
-                                value += cache[node_name][tmstp][
+                            total_diff = 0
+                            for tmstp in sorted(cache[node_name]):
+                                if (
+                                    prev_tmstp < tmstp
+                                    and prev_tmstp + int(config["TAPTAP"]["TIMEOUT"])
+                                    > tmstp
+                                ):
+                                    tmstp_diff = tmstp - prev_tmstp
+                                    value += (
+                                        cache[node_name][tmstp][
+                                            sensors[sensor]["type_node"][type]
+                                        ]
+                                        * tmstp_diff
+                                    )
+                                    total_diff += tmstp_diff
+                                prev_tmstp = tmstp
+                            if total_diff > 0:
+                                value /= total_diff
+                            else:
+                                value = cache[node_name][last][
                                     sensors[sensor]["type_node"][type]
                                 ]
-                            value /= len(cache[node_name])
                             if "scale" in sensors[sensor]:
                                 value *= sensors[sensor]["scale"]
                         else:
@@ -968,7 +995,7 @@ def taptap_power_event(data: dict, now: float) -> bool:
                 logger.debug(data)
                 return False
             # Copy validated data into cache struct
-            if data["tmstp"] + int(config["TAPTAP"]["UPDATE"]) < now:
+            if data["tmstp"] + int(config["TAPTAP"]["TIMEOUT"]) < now:
                 diff = round(now - data["tmstp"], 1)
                 logger.warning(
                     f"Old data detected: '{data[name]}', time difference: '{diff}'s",
@@ -1638,10 +1665,6 @@ def taptap_init() -> None:
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-# The pipesize parameter causes Python to call fcntl.F_SETPIPE_SZ to resize the kernel pipe buffer,
-# which requires the SYS_RESOURCE capability that is stripped by default in Docker containers.
-# The default pipe size (typically 64KB on Linux) is sufficient for normal operation.
-#            pipesize=1024 * 1024,
         )
     elif config["TAPTAP"]["ADDRESS"]:
         logger.debug(
@@ -1667,10 +1690,6 @@ def taptap_init() -> None:
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-# The pipesize parameter causes Python to call fcntl.F_SETPIPE_SZ to resize the kernel pipe buffer,
-# which requires the SYS_RESOURCE capability that is stripped by default in Docker containers.
-# The default pipe size (typically 64KB on Linux) is sufficient for normal operation.
-#            pipesize=1024 * 1024,
         )
     else:
         logger.error("Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
