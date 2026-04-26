@@ -66,11 +66,11 @@ STRINGS_AVAILABILITY_IDENTIFIED = false
 STATS_AVAILABILITY_ONLINE = false
 # To render Home Assistant total statistical entities 'UNAVAILABLE' if not all node serials are yet known, set to 'true' or 'false'. Default is 'false'.
 STATS_AVAILABILITY_IDENTIFIED = false
-# Comma separated list of the node sensors entities which shall have Home Assistant statistic recorder enabled
+# Comma separated list of the base names of the node sensors entities which shall have Home Assistant statistic recorder enabled, available sensor base names are voltage_in, voltage_out, current_in, current_out, power, temperature, duty_cycle, rssi, energy
 NODES_SENSORS_RECORDER = energy
-# Comma separated list of the string statistic sensors entities which shall have Home Assistant statistic recorder enabled
+# Comma separated list of the base names of the string statistic sensors entities which shall have Home Assistant statistic recorder enabled, available sensor base names are voltage_in, voltage_out, current_in, current_out, power, temperature, duty_cycle, rssi, energy
 STRINGS_SENSORS_RECORDER = energy
-# Comma separated list of the total statistic sensors entities which shall have Home Assistant statistic recorder enabled
+# Comma separated list of the base names of the total statistic sensors entities which shall have Home Assistant statistic recorder enabled, available sensor base names are voltage_in, voltage_out, current_in, current_out, power, temperature, duty_cycle, rssi, energy
 STATS_SENSORS_RECORDER = energy
 
 [RUNTIME]

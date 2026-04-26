@@ -336,6 +336,23 @@ if (
     logger.error("Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
     exit(1)
 
+for mode in ["NODES", "STRINGS", "STATS"]:
+    for sensor in map(str.strip, config["HA"][f"{mode}_SENSORS_RECORDER"].split(",")):
+        if not sensor:
+            continue
+        if not (
+            sensor in sensors
+            and sensors[sensor]["unit"]
+            and sensors[sensor]["state_class"]
+            and sensors[sensor]["device_class"]
+            and sensors[sensor]["device_class"] != "timestamp"
+        ):
+            logger.error(
+                f"Invalid sensor base name in HA {mode}_SENSORS_RECORDER config: {sensor}"
+            )
+            exit(1)
+
+
 # Init nodes dictionaries
 # Dict of node names -> node string, serial, getaway, node id
 nodes = {}
@@ -1428,9 +1445,9 @@ def taptap_discovery_device_sensor(
             sensor
         ]["precision"]
 
-    if sensors[sensor]["state_class"] and sensor in config["HA"][
-        mode.upper() + "_SENSORS_RECORDER"
-    ].split(","):
+    if sensors[sensor]["state_class"] and sensor in map(
+        str.strip, config["HA"][mode.upper() + "_SENSORS_RECORDER"].split(",")
+    ):
         discovery["components"][sensor_id]["state_class"] = sensors[sensor][
             "state_class"
         ]
@@ -1599,9 +1616,9 @@ def taptap_discovery_legacy_sensor(
     if sensors[sensor]["precision"] is not None:
         discovery[key]["suggested_display_precision"] = sensors[sensor]["precision"]
 
-    if sensors[sensor]["state_class"] and sensor in config["HA"][
-        mode.upper() + "_SENSORS_RECORDER"
-    ].split(","):
+    if sensors[sensor]["state_class"] and sensor in map(
+        str.strip, config["HA"][mode.upper() + "_SENSORS_RECORDER"].split(",")
+    ):
         discovery[key]["state_class"] = sensors[sensor]["state_class"]
 
     if (
