@@ -69,9 +69,9 @@ STATS_AVAILABILITY_IDENTIFIED = false
 # Comma separated list of the node sensors entities which shall have Home Assistant statistic recorder enabled
 NODES_SENSORS_RECORDER = energy
 # Comma separated list of the string statistic sensors entities which shall have Home Assistant statistic recorder enabled
-STRINGS_SENSORS_RECORDER = energy_daily
+STRINGS_SENSORS_RECORDER = energy
 # Comma separated list of the total statistic sensors entities which shall have Home Assistant statistic recorder enabled
-STATS_SENSORS_RECORDER = energy_daily
+STATS_SENSORS_RECORDER = energy
 
 [RUNTIME]
 # Counter after how many recoverable errors application will terminate, set to 0 for unlimited retries.
