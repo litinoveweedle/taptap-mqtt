@@ -1665,7 +1665,6 @@ def taptap_init() -> None:
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            pipesize=1024 * 1024,
         )
     elif config["TAPTAP"]["ADDRESS"]:
         logger.debug(
@@ -1691,7 +1690,6 @@ def taptap_init() -> None:
             ],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            pipesize=1024 * 1024,
         )
     else:
         logger.error("Either TAPTAP SERIAL or ADDRESS and PORT shall be set!")
